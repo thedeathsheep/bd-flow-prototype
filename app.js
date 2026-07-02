@@ -1245,13 +1245,13 @@
         ${metric("本账期预计结算", money(summary.currentExpectedSettlement), `${summary.currentPeriodLabel} 可见链路`)}
         ${metric("上账期结算", money(summary.previousSettlement), summary.previousPeriodLabel)}
         ${metric("历史结算总额", money(summary.historySettlement), "按月汇总")}
-        ${metric("今日预计结算", `今日 + ${money(summary.todayExpectedSettlement)}`, "实时预估")}
+        ${metric("今日预计结算", `+ ${money(summary.todayExpectedSettlement)}`, "实时预估")}
       </div>
       <div class="grid cols-4">
         ${metric("本期流水总额", money(summary.currentFlow), "充值 + 消费")}
         ${metric("上账期流水", money(summary.previousFlow), summary.previousPeriodLabel)}
         ${metric("历史流水总额", money(summary.historyFlow), "按月汇总")}
-        ${metric("今日流水", `今日 + ${money(summary.todayFlow)}`, "实时产生")}
+        ${metric("今日流水", `+ ${money(summary.todayFlow)}`, "实时产生")}
       </div>
       <div class="card">
         <div class="card-header">
