@@ -1265,6 +1265,43 @@ tr:last-child td {
   max-width: 860px;
 }
 
+.help-role-list {
+  display: grid;
+  gap: 12px;
+  max-width: 980px;
+}
+
+.help-role-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.help-role-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.help-role-head strong,
+.help-role-head span {
+  display: block;
+}
+
+.help-role-head span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.help-role-preview {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
 .markdown-preview {
   border: 1px solid var(--line);
   border-radius: 8px;

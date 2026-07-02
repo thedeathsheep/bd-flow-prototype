@@ -127,7 +127,7 @@
         ],
         bdBills: [],
         bdDisputes: [],
-        helpArticle: seedHelpArticle(now),
+        helpArticles: seedHelpArticles(now),
         messages: [],
         audit: [{ time: now, actor: "系统", action: "初始化数据", result: "可从商务生成邀请链接开始跑主流程" }],
       },
@@ -147,12 +147,44 @@
     };
   }
 
-  function seedHelpArticle(now) {
+  function seedHelpArticles(now) {
     return {
-      title: "规则与协议",
-      markdown: "## 渠道合作规则\n- 客户归属必须由客户通过邀请链接提交，并经过总后台审批。\n- 审批通过前不进入业绩、不参与结算。\n- 招商、运营、商务只能查看自己链路范围内的数据。\n\n## 商务客户绑定说明\n- 商务在客户邀约中生成邀请链接。\n- 客户提交资料后等待平台审核。\n- 客户归属通过后，可在我的客户、返点流水和结算确认中查看。\n\n## 模型BD返点与结算规则\n- 模型BD只查看关联模型、用量、返点账单和异议。\n- BD账单由总后台按自然月生成。\n- BD确认后进入打款；存在问题时提交异议并等待总后台终审。",
-      updatedAt: now,
+      investor: {
+        title: "招商规则说明",
+        markdown: "## 招商规则说明\n- 招商可查看自己的运营、运营的商务、商务客户和链路内业绩。\n- 招商不直接绑定客户，客户归属必须由商务邀请链接进入并通过总后台审批。\n- 结算按已配置返点规则和自然月账单流转。",
+        updatedAt: now,
+      },
+      operator: {
+        title: "运营规则说明",
+        markdown: "## 运营规则说明\n- 运营可查看自己的商务、商务客户和链路内业绩。\n- 运营可提交商务资料，启用必须经过总后台官方终审。\n- 运营只查看自己对应的返点规则和结算单。",
+        updatedAt: now,
+      },
+      business: {
+        title: "商务规则说明",
+        markdown: "## 商务规则说明\n- 商务通过客户邀约生成邀请链接，客户在独立页面提交绑定资料。\n- 客户归属审批通过前，不进入客户列表、不计业绩、不参与结算。\n- 商务可查看自己的客户、返点流水、返点规则和结算确认。",
+        updatedAt: now,
+      },
+      externalBD: {
+        title: "模型BD规则说明",
+        markdown: "## 模型BD规则说明\n- 模型BD只查看关联模型、用量、返点账单和异议。\n- 返点口径固定为消耗模型积分返点。\n- BD账单由总后台按自然月生成，BD确认后进入打款。",
+        updatedAt: now,
+      },
     };
+  }
+
+  function helpArticleRoleConfigs() {
+    return [
+      ["investor", "招商规则说明"],
+      ["operator", "运营规则说明"],
+      ["business", "商务规则说明"],
+      ["externalBD", "模型BD规则说明"],
+    ];
+  }
+
+  function helpArticleForRole(role) {
+    const seeded = seedHelpArticles(nowText());
+    const key = role === "admin" ? "investor" : role;
+    return state.entities.helpArticles?.[key] || seeded[key] || seeded.business;
   }
 
   function loadState() {
@@ -269,16 +301,22 @@
       reviewedAt: "",
       ...item,
     }));
-    const seededHelpArticle = seedHelpArticle(nowText());
+    const seededHelpArticles = seedHelpArticles(nowText());
     const legacyArticleListKey = ["help", "Docs"].join("");
     const legacyHelpDoc = Array.isArray(next.entities[legacyArticleListKey])
       ? next.entities[legacyArticleListKey].find((item) => item?.markdown)
       : null;
-    next.entities.helpArticle = {
-      title: next.entities.helpArticle?.title || legacyHelpDoc?.title || seededHelpArticle.title,
-      markdown: next.entities.helpArticle?.markdown || legacyHelpDoc?.markdown || seededHelpArticle.markdown,
-      updatedAt: next.entities.helpArticle?.updatedAt || legacyHelpDoc?.updatedAt || seededHelpArticle.updatedAt,
-    };
+    const legacyHelpArticle = next.entities.helpArticle || legacyHelpDoc || {};
+    next.entities.helpArticles = Object.fromEntries(helpArticleRoleConfigs().map(([role]) => {
+      const current = next.entities.helpArticles?.[role];
+      const seeded = seededHelpArticles[role];
+      return [role, {
+        title: current?.title || seeded.title,
+        markdown: current?.markdown || seeded.markdown || legacyHelpArticle.markdown || "",
+        updatedAt: current?.updatedAt || seeded.updatedAt || legacyHelpArticle.updatedAt || nowText(),
+      }];
+    }));
+    delete next.entities.helpArticle;
     delete next.entities[legacyArticleListKey];
     next.entities.audit = (next.entities.audit || []).map((item) => ({
       ...item,
@@ -926,9 +964,13 @@
       `);
     }
     if (modal.type === "editHelpArticle") {
-      const article = state.entities.helpArticle || seedHelpArticle(nowText());
-      return modalShell("编辑规则与协议", "总后台维护这一页的标题和 Markdown 正文。", closeButton, `
+      const role = modal.role || modal.id || "investor";
+      const article = helpArticleForRole(role);
+      const label = helpArticleRoleConfigs().find(([value]) => value === role)?.[1] || "规则说明";
+      return modalShell("编辑规则说明", "总后台分别维护四份规则说明文本。", closeButton, `
         <form class="form-grid" data-form="saveHelpArticle">
+          <input type="hidden" name="role" value="${escapeHtml(role)}" />
+          <div class="field"><label>文本对象</label><input value="${escapeHtml(label)}" readonly /></div>
           <div class="field"><label>页面标题</label><input name="title" value="${escapeHtml(article.title)}" placeholder="如 规则与协议" required /></div>
           <div class="field full-span"><label>Markdown 正文</label><textarea name="markdown" placeholder="用 Markdown 写这页正文">${escapeHtml(article.markdown)}</textarea></div>
           <div class="toolbar"><button class="btn primary" type="submit">保存文本</button></div>
@@ -1517,20 +1559,52 @@
   }
 
   function renderHelpCenter(user) {
-    const article = state.entities.helpArticle || seedHelpArticle(nowText());
+    if (user.role === "admin") {
+      return `
+        <div class="article-topbar">
+          <div>
+            <h1>规则与协议</h1>
+            <p>总后台分别维护招商、运营、商务、模型BD四份规则说明文本。</p>
+          </div>
+        </div>
+        ${renderAdminHelpArticleList()}
+      `;
+    }
+    const article = helpArticleForRole(user.role);
     return `
       <div class="article-topbar">
         <div>
           <h1>${escapeHtml(article.title || "规则与协议")}</h1>
-          <p>使用规则、商务协议和操作说明由总后台统一维护。</p>
-        </div>
-        <div class="toolbar">
-          ${user.role === "admin" ? `<button class="btn primary" data-action="openModal" data-modal="editHelpArticle">编辑文本</button>` : ""}
+          <p>当前仅展示本角色对应的规则说明。</p>
         </div>
       </div>
       <article class="help-article">
         ${renderMarkdownPreview(article.markdown)}
       </article>
+    `;
+  }
+
+  function renderAdminHelpArticleList() {
+    return `
+      <div class="help-role-list">
+        ${helpArticleRoleConfigs().map(([role, label]) => {
+          const article = helpArticleForRole(role);
+          return `
+            <article class="help-role-item">
+              <div class="help-role-head">
+                <div>
+                  <strong>${escapeHtml(label)}</strong>
+                  <span>更新时间：${escapeHtml(article.updatedAt || "-")}</span>
+                </div>
+                <button class="btn primary" data-action="openModal" data-modal="editHelpArticle" data-role="${escapeHtml(role)}">编辑文本</button>
+              </div>
+              <div class="help-role-preview">
+                ${renderMarkdownPreview(article.markdown)}
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
     `;
   }
 
@@ -3173,8 +3247,13 @@
       addAudit(actorName(), "保存规则与协议", "仅总后台可配置");
       return false;
     }
+    const role = formValue(formData, "role");
     const title = formValue(formData, "title") || "规则与协议";
     const markdown = formValue(formData, "markdown");
+    if (!helpArticleRoleConfigs().some(([value]) => value === role)) {
+      addAudit(actorName(), "保存规则与协议", "文本对象不正确");
+      return false;
+    }
     if (!title) {
       addAudit(actorName(), "保存规则与协议", "标题不能为空");
       return false;
@@ -3183,12 +3262,12 @@
       addAudit(actorName(), "保存规则与协议", "正文不能为空");
       return false;
     }
-    state.entities.helpArticle = {
+    state.entities.helpArticles[role] = {
       title,
       markdown,
       updatedAt: nowText(),
     };
-    addAudit(actorName(), "保存规则与协议", "页面文本已更新");
+    addAudit(actorName(), "保存规则与协议", `${title} 已更新`);
   }
 
   function applyCustomerFilter(formData) {
