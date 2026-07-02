@@ -1042,7 +1042,7 @@
         <form class="form-grid" data-form="createBdRelation">
           <div class="field"><label>模型BD账号</label><select name="owner">${state.entities.bdAccounts.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} / ${escapeHtml(item.name)}</option>`).join("")}</select></div>
           <div class="field"><label>模型</label><select name="model">${state.entities.models.map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)} / ${escapeHtml(item.provider)}</option>`).join("")}</select></div>
-          <div class="field"><label>返点口径</label><select name="basis"><option value="消耗模型积分返点">消耗模型积分返点</option><option value="模型收入返点">模型收入返点</option></select></div>
+          <div class="field"><label>返点口径</label><input value="${escapeHtml(modelBdRebateBasis())}" readonly /></div>
           <div class="field"><label>返点比例</label><input name="rate" placeholder="如 10 表示 10%" /></div>
           <div class="field"><label>结算周期</label><input name="cycle" value="自然月" /></div>
           <div class="field"><label>结算账号</label><input name="settlementAccount" placeholder="默认使用模型BD收款账户" /></div>
@@ -2168,6 +2168,10 @@
     return optionList(["充值", "消费"], selected);
   }
 
+  function modelBdRebateBasis() {
+    return "消耗模型积分返点";
+  }
+
   function rebateCycleOptions(selected = "自然月") {
     return optionList(["自然月", "周结", "季度"], selected);
   }
@@ -3103,7 +3107,7 @@
       id,
       owner,
       model: formValue(formData, "model") || "Seedance 2.0",
-      basis: formValue(formData, "basis") || "消耗模型积分返点",
+      basis: modelBdRebateBasis(),
       rate,
       cycle: formValue(formData, "cycle") || "自然月",
       settlementAccount: formValue(formData, "settlementAccount") || bdAccount.payment,
