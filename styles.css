@@ -946,50 +946,131 @@ button {
   font-size: 12px;
 }
 
-.trend-list {
+.trend-line-chart {
   display: grid;
-  gap: 10px;
+  gap: 14px;
 }
 
-.trend-row {
-  display: grid;
-  grid-template-columns: 74px minmax(180px, 1fr) minmax(220px, 0.8fr);
-  gap: 12px;
+.trend-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
   align-items: center;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 10px;
-  background: var(--panel-soft);
+  color: var(--muted);
+  font-size: 12px;
 }
 
-.trend-row strong {
-  font-size: 13px;
-}
-
-.trend-bars {
-  display: grid;
+.trend-chart-legend span {
+  display: inline-flex;
   gap: 6px;
+  align-items: center;
 }
 
-.trend-bars span,
-.trend-bars em {
-  display: block;
-  height: 8px;
+.trend-chart-legend i {
+  display: inline-block;
+  width: 18px;
+  height: 3px;
   border-radius: 999px;
 }
 
-.trend-bars span {
-  background: var(--primary);
+.trend-chart-panel {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 12px 12px 4px;
+  background: var(--panel-soft);
 }
 
-.trend-bars em {
-  background: var(--green);
-}
-
-.trend-values {
+.trend-chart-head {
   display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.trend-chart-head strong {
+  font-size: 14px;
+}
+
+.trend-chart-head span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trend-chart-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 150px;
+}
+
+.trend-axis {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.trend-grid-line {
+  stroke: var(--line);
+  stroke-dasharray: 4 6;
+  stroke-width: 1;
+}
+
+.trend-line {
+  fill: none;
+  stroke-width: 3.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.flow-line {
+  stroke: var(--primary);
+  background: var(--primary);
+  fill: var(--primary);
+}
+
+.settlement-line {
+  stroke: var(--green);
+  background: var(--green);
+  fill: var(--green);
+}
+
+.trend-dot {
+  stroke: #fff;
+  stroke-width: 2;
+}
+
+.trend-y-label,
+.trend-x-label,
+.trend-point-label {
+  fill: var(--muted);
+  font-size: 11px;
+}
+
+.trend-point-label {
+  fill: var(--text);
+  font-weight: 700;
+}
+
+.trend-chart-values {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.trend-chart-values div {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: #fff;
+}
+
+.trend-chart-values strong {
+  font-size: 13px;
+}
+
+.trend-chart-values span {
   color: var(--muted);
   font-size: 12px;
 }
@@ -1521,7 +1602,7 @@ tr:last-child td {
 
   .admin-dashboard-grid,
   .admin-module-grid,
-  .trend-row {
+  .trend-chart-values {
     grid-template-columns: 1fr;
   }
 }

@@ -2035,23 +2035,60 @@
 
   function renderMonthlyTrend(rows) {
     if (!rows.length) return `<div class="empty">暂无数据。</div>`;
-    const maxFlow = Math.max(...rows.map((item) => item.flow), 1);
-    const maxSettlement = Math.max(...rows.map((item) => item.settlement), 1);
+    const chartWidth = 760;
+    const chartHeight = 176;
+    const pad = { top: 28, right: 28, bottom: 38, left: 56 };
+    const innerWidth = chartWidth - pad.left - pad.right;
+    const innerHeight = chartHeight - pad.top - pad.bottom;
+    const xFor = (index) => pad.left + (rows.length === 1 ? innerWidth / 2 : (innerWidth / (rows.length - 1)) * index);
+    const renderChart = (key, label, className) => {
+      const values = rows.map((item) => Number(item[key] || 0));
+      const maxValue = Math.max(...values, 1);
+      const yFor = (value) => pad.top + innerHeight - (Number(value || 0) / maxValue) * innerHeight;
+      const points = rows.map((item, index) => `${xFor(index)},${yFor(item[key])}`).join(" ");
+      return `
+        <div class="trend-chart-panel">
+          <div class="trend-chart-head"><strong>${escapeHtml(label)}趋势</strong><span>峰值 ${escapeHtml(money(maxValue))}</span></div>
+          <svg class="trend-chart-svg" viewBox="0 0 ${chartWidth} ${chartHeight}" role="img" aria-label="${escapeHtml(label)}每月趋势">
+            <line class="trend-axis" x1="${pad.left}" y1="${pad.top + innerHeight}" x2="${chartWidth - pad.right}" y2="${pad.top + innerHeight}"></line>
+            <line class="trend-axis" x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + innerHeight}"></line>
+            ${[0.25, 0.5, 0.75].map((ratio) => `<line class="trend-grid-line" x1="${pad.left}" y1="${pad.top + innerHeight * ratio}" x2="${chartWidth - pad.right}" y2="${pad.top + innerHeight * ratio}"></line>`).join("")}
+            <text class="trend-y-label" x="${pad.left - 10}" y="${pad.top + 4}" text-anchor="end">${escapeHtml(money(maxValue))}</text>
+            <text class="trend-y-label" x="${pad.left - 10}" y="${pad.top + innerHeight + 4}" text-anchor="end">0</text>
+            <polyline class="trend-line ${className}" points="${points}"></polyline>
+            ${rows.map((item, index) => {
+              const x = xFor(index);
+              const y = yFor(item[key]);
+              const labelY = Math.max(14, y - 9);
+              return `
+                <g class="trend-point-group">
+                  <circle class="trend-dot ${className}" cx="${x}" cy="${y}" r="4"></circle>
+                  <text class="trend-point-label" x="${x}" y="${labelY}" text-anchor="middle">${escapeHtml(money(item[key]))}</text>
+                  <text class="trend-x-label" x="${x}" y="${chartHeight - 12}" text-anchor="middle">${escapeHtml(item.period)}</text>
+                </g>
+              `;
+            }).join("")}
+          </svg>
+        </div>
+      `;
+    };
     return `
-      <div class="trend-list">
-        ${rows.map((item) => `
-          <div class="trend-row">
-            <strong>${escapeHtml(item.period)}</strong>
-            <div class="trend-bars">
-              <span style="width:${Math.max(4, Math.round((item.flow / maxFlow) * 100))}%"></span>
-              <em style="width:${Math.max(4, Math.round((item.settlement / maxSettlement) * 100))}%"></em>
-            </div>
-            <div class="trend-values">
+      <div class="trend-line-chart">
+        <div class="trend-chart-legend">
+          <span><i class="flow-line"></i>流水</span>
+          <span><i class="settlement-line"></i>预计结算</span>
+        </div>
+        ${renderChart("flow", "流水", "flow-line")}
+        ${renderChart("settlement", "预计结算", "settlement-line")}
+        <div class="trend-chart-values">
+          ${rows.map((item) => `
+            <div>
+              <strong>${escapeHtml(item.period)}</strong>
               <span>流水 ${escapeHtml(money(item.flow))}</span>
               <span>预计结算 ${escapeHtml(money(item.settlement))}</span>
             </div>
-          </div>
-        `).join("")}
+          `).join("")}
+        </div>
       </div>
     `;
   }
