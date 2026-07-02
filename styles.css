@@ -1239,42 +1239,30 @@ tr:last-child td {
   line-height: 1.45;
 }
 
-.help-doc-list {
-  display: grid;
-  gap: 12px;
-}
-
-.help-doc-item {
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  background: #fff;
-  padding: 14px;
-}
-
-.help-doc-head {
+.article-topbar {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
   align-items: flex-start;
-  margin-bottom: 10px;
+  gap: 16px;
+  margin-bottom: 18px;
+  max-width: 860px;
 }
 
-.help-doc-head strong,
-.help-doc-head span {
-  display: block;
+.article-topbar h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: 24px;
+  line-height: 1.35;
 }
 
-.help-doc-head span {
-  margin-top: 4px;
+.article-topbar p {
+  margin: 6px 0 0;
   color: var(--muted);
-  font-size: 12px;
+  line-height: 1.6;
 }
 
-.help-doc-desc {
-  margin: 0 0 10px;
-  color: var(--muted);
-  line-height: 1.55;
-  font-size: 13px;
+.help-article {
+  max-width: 860px;
 }
 
 .markdown-preview {
@@ -1314,6 +1302,29 @@ tr:last-child td {
 .markdown-preview a {
   color: var(--primary);
   text-decoration: none;
+}
+
+.help-article .markdown-preview {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 0;
+}
+
+.help-article .markdown-preview h3 {
+  font-size: 22px;
+  line-height: 1.35;
+}
+
+.help-article .markdown-preview h4 {
+  font-size: 18px;
+  line-height: 1.4;
+}
+
+.help-article .markdown-preview p,
+.help-article .markdown-preview li {
+  font-size: 15px;
+  line-height: 1.85;
 }
 
 .notice {
