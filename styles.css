@@ -1270,6 +1270,13 @@ tr:last-child td {
   font-size: 12px;
 }
 
+.help-doc-desc {
+  margin: 0 0 10px;
+  color: var(--muted);
+  line-height: 1.55;
+  font-size: 13px;
+}
+
 .markdown-preview {
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -1307,13 +1314,6 @@ tr:last-child td {
 .markdown-preview a {
   color: var(--primary);
   text-decoration: none;
-}
-
-.help-link-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 10px;
 }
 
 .notice {

@@ -154,9 +154,8 @@
         title: "渠道合作规则",
         category: "使用规则",
         audience: "channel",
+        description: "展示渠道合作的基础规则口径。",
         markdown: "## 渠道合作规则\n- 客户归属必须由客户通过邀请链接提交，并经过总后台审批。\n- 审批通过前不进入业绩、不参与结算。\n- 招商、运营、商务只能查看自己链路范围内的数据。",
-        feishuUrl: "https://chengduduck2.jp.larksuite.com/docx/PEYudqns7oiRIWxWyDWjOiQTpZg",
-        relatedLinks: "招商协议模板 | https://chengduduck2.jp.larksuite.com/docx/PEYudqns7oiRIWxWyDWjOiQTpZg",
         status: "active",
         updatedAt: now,
       },
@@ -165,9 +164,8 @@
         title: "商务客户绑定说明",
         category: "操作说明",
         audience: "business",
+        description: "说明商务从邀约到客户归属通过的操作路径。",
         markdown: "## 商务客户绑定说明\n- 在客户邀约中生成邀请链接。\n- 客户提交资料后等待平台审核。\n- 客户归属通过后，可在我的客户、返点流水和结算确认中查看。",
-        feishuUrl: "https://chengduduck2.jp.larksuite.com/docx/PEYudqns7oiRIWxWyDWjOiQTpZg",
-        relatedLinks: "",
         status: "active",
         updatedAt: now,
       },
@@ -176,9 +174,8 @@
         title: "模型BD返点与结算规则",
         category: "商务协议",
         audience: "externalBD",
+        description: "说明模型BD查看用量、账单确认和异议处理的规则。",
         markdown: "## 模型BD返点与结算规则\n- 模型BD只查看关联模型、用量、返点账单和异议。\n- BD账单由总后台按自然月生成。\n- BD确认后进入打款；存在问题时提交异议并等待总后台终审。",
-        feishuUrl: "https://chengduduck2.jp.larksuite.com/docx/PEYudqns7oiRIWxWyDWjOiQTpZg",
-        relatedLinks: "",
         status: "active",
         updatedAt: now,
       },
@@ -304,9 +301,8 @@
       title: item.title || "未命名规则",
       category: item.category || "使用规则",
       audience: item.audience || "all",
+      description: item.description || "",
       markdown: item.markdown || "",
-      feishuUrl: item.feishuUrl || "",
-      relatedLinks: item.relatedLinks || "",
       status: item.status || "active",
       updatedAt: item.updatedAt || nowText(),
     }));
@@ -958,17 +954,16 @@
     if (modal.type === "addHelpDoc" || modal.type === "editHelpDoc") {
       const doc = modal.type === "editHelpDoc"
         ? state.entities.helpDocs.find((item) => item.id === modal.id)
-        : { id: "", title: "", category: "使用规则", audience: "all", markdown: "", feishuUrl: "", relatedLinks: "", status: "active" };
+        : { id: "", title: "", category: "使用规则", audience: "all", description: "", markdown: "", status: "active" };
       if (!doc) return "";
-      return modalShell(modal.type === "editHelpDoc" ? "编辑规则与协议" : "新增规则与协议", "总后台维护 Markdown 摘要和飞书文档入口，渠道侧按可见角色只读查看。", closeButton, `
+      return modalShell(modal.type === "editHelpDoc" ? "编辑规则与协议" : "新增规则与协议", "总后台维护配置说明和 Markdown 文本，渠道侧按可见角色只读查看。", closeButton, `
         <form class="form-grid" data-form="saveHelpDoc">
           <input type="hidden" name="id" value="${escapeHtml(doc.id)}" />
           <div class="field"><label>标题</label><input name="title" value="${escapeHtml(doc.title)}" placeholder="如 商务合作协议" required /></div>
           <div class="field"><label>分类</label><input name="category" value="${escapeHtml(doc.category)}" placeholder="使用规则 / 商务协议 / 操作说明" /></div>
           <div class="field"><label>可见角色</label><select name="audience">${helpAudienceOptions(doc.audience)}</select></div>
           <div class="field"><label>状态</label><select name="status">${helpStatusOptions(doc.status)}</select></div>
-          <div class="field"><label>飞书主链接</label><input name="feishuUrl" value="${escapeHtml(doc.feishuUrl)}" placeholder="https://..." /></div>
-          <div class="field"><label>相关链接</label><textarea name="relatedLinks" placeholder="每行一个：链接标题 | https://...">${escapeHtml(doc.relatedLinks)}</textarea></div>
+          <div class="field full-span"><label>配置说明</label><textarea name="description" placeholder="用于说明这段文本的用途和适用场景">${escapeHtml(doc.description)}</textarea></div>
           <div class="field full-span"><label>Markdown 内容</label><textarea name="markdown" placeholder="支持标题、段落、列表、链接和加粗文本">${escapeHtml(doc.markdown)}</textarea></div>
           <div class="toolbar"><button class="btn primary" type="submit">保存内容</button></div>
         </form>
@@ -1559,18 +1554,18 @@
     const isAdmin = user.role === "admin";
     const docs = visibleHelpDocs(user);
     return `
-      ${pageHeader("规则与协议", "集中查看使用规则、商务协议、操作说明和飞书文档入口。", `
+      ${pageHeader("规则与协议", "集中查看使用规则、商务协议和操作说明。", `
         ${isAdmin ? `<button class="btn primary" data-action="openModal" data-modal="addHelpDoc">新增内容</button>` : ""}
       `)}
-      ${isAdmin ? adminFilterBar(["类型：使用规则/商务协议/操作说明", "内容：Markdown", "链接：飞书文档", "权限：按角色可见"], "") : ""}
+      ${isAdmin ? adminFilterBar(["类型：使用规则/商务协议/操作说明", "内容：Markdown", "说明：后台配置", "权限：按角色可见"], "") : ""}
       ${isAdmin ? `
         <div class="card">
-          <div class="card-header"><div><h3>内容配置</h3><p>总后台维护标题、分类、可见角色、Markdown 摘要和飞书入口。</p></div>${featureBadges(false, true)}</div>
+          <div class="card-header"><div><h3>内容配置</h3><p>总后台维护标题、分类、可见角色、配置说明和 Markdown 文本。</p></div>${featureBadges(false, true)}</div>
           ${renderHelpDocsTable(state.entities.helpDocs)}
         </div>
       ` : ""}
       <div class="card">
-        <div class="card-header"><div><h3>${isAdmin ? "内容预览" : "可查看内容"}</h3><p>${isAdmin ? "按当前配置预览渠道侧看到的内容。" : "如需查看正式协议全文，点击飞书链接进入文档。"}</p></div></div>
+        <div class="card-header"><div><h3>${isAdmin ? "内容预览" : "可查看内容"}</h3><p>${isAdmin ? "按当前配置预览渠道侧看到的内容。" : "当前角色可查看的规则文本。"}</p></div></div>
         ${renderHelpDocList(docs, isAdmin)}
       </div>
     `;
@@ -1729,7 +1724,7 @@
       { key: "title", label: "标题" },
       { key: "category", label: "分类" },
       { key: "audience", label: "可见角色", value: (row) => helpAudienceName(row.audience) },
-      { key: "feishuUrl", label: "飞书链接", value: (row) => row.feishuUrl ? "已配置" : "未配置" },
+      { key: "description", label: "配置说明" },
       { key: "status", label: "状态", type: "status" },
       { key: "updatedAt", label: "更新时间" },
     ], rows, (row) => currentUser()?.role === "admin" ? `
@@ -1750,11 +1745,8 @@
               </div>
               ${statusBadge(doc.status)}
             </div>
+            ${doc.description ? `<p class="help-doc-desc">${escapeHtml(doc.description)}</p>` : ""}
             ${renderMarkdownPreview(doc.markdown)}
-            <div class="help-link-row">
-              ${doc.feishuUrl ? `<a class="btn primary" href="${escapeHtml(doc.feishuUrl)}" target="_blank" rel="noreferrer">查看飞书</a>` : ""}
-              ${helpLinks(doc).map((link) => `<a class="btn" href="${escapeHtml(link.url)}" target="_blank" rel="noreferrer">${escapeHtml(link.label)}</a>`).join("")}
-            </div>
           </article>
         `).join("")}
       </div>
@@ -2281,18 +2273,6 @@
       business: "仅商务",
       externalBD: "仅模型BD",
     }[value] || value || "全部角色";
-  }
-
-  function helpLinks(doc) {
-    return String(doc.relatedLinks || "")
-      .split(/\r?\n/)
-      .map((line) => line.trim())
-      .filter(Boolean)
-      .map((line) => {
-        const parts = line.split("|").map((part) => part.trim());
-        return { label: parts[0] || "相关链接", url: parts[1] || parts[0] };
-      })
-      .filter((link) => /^https?:\/\//.test(link.url));
   }
 
   function renderInlineMarkdown(value) {
@@ -3313,9 +3293,8 @@
       title,
       category: formValue(formData, "category") || "使用规则",
       audience: formValue(formData, "audience") || "all",
+      description: formValue(formData, "description"),
       markdown: formValue(formData, "markdown"),
-      feishuUrl: formValue(formData, "feishuUrl"),
-      relatedLinks: formValue(formData, "relatedLinks"),
       status: formValue(formData, "status") || "active",
       updatedAt: nowText(),
     });
