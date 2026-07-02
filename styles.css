@@ -1096,6 +1096,10 @@ tr:last-child td {
   gap: 12px;
 }
 
+.form-grid .full-span {
+  grid-column: 1 / -1;
+}
+
 .filter-form {
   display: grid;
   grid-template-columns: minmax(240px, 1fr) minmax(180px, 0.55fr) auto;
@@ -1233,6 +1237,83 @@ tr:last-child td {
   color: var(--muted);
   font-size: 12px;
   line-height: 1.45;
+}
+
+.help-doc-list {
+  display: grid;
+  gap: 12px;
+}
+
+.help-doc-item {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 14px;
+}
+
+.help-doc-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.help-doc-head strong,
+.help-doc-head span {
+  display: block;
+}
+
+.help-doc-head span {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.markdown-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel-soft);
+  padding: 10px 12px;
+  color: #344054;
+}
+
+.markdown-preview h3,
+.markdown-preview h4,
+.markdown-preview p,
+.markdown-preview ul {
+  margin: 0;
+}
+
+.markdown-preview h3,
+.markdown-preview h4 {
+  color: var(--text);
+  font-size: 14px;
+}
+
+.markdown-preview p,
+.markdown-preview li {
+  line-height: 1.65;
+}
+
+.markdown-preview > * + * {
+  margin-top: 8px;
+}
+
+.markdown-preview ul {
+  padding-left: 18px;
+}
+
+.markdown-preview a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.help-link-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 .notice {
