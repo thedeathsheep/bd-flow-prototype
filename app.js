@@ -145,6 +145,7 @@
           customerStatus: "all",
           performanceKeyword: "",
           performanceOwner: "all",
+          listFilters: {},
         },
       },
     };
@@ -377,6 +378,7 @@
         customerStatus: "all",
         performanceKeyword: "",
         performanceOwner: "all",
+        listFilters: {},
       },
       ...(next.ui || {}),
     };
@@ -385,8 +387,10 @@
       customerStatus: "all",
       performanceKeyword: "",
       performanceOwner: "all",
+      listFilters: {},
       ...(next.ui.filters || {}),
     };
+    next.ui.filters.listFilters = next.ui.filters.listFilters || {};
     if (next.page === ["channel", "Overview"].join("")) next.page = "accounts";
     delete next.entities.oldCodes;
     return next;
@@ -1230,6 +1234,47 @@
     });
   }
 
+  function listFilterValue(filterKey) {
+    state.ui.filters.listFilters = state.ui.filters.listFilters || {};
+    return state.ui.filters.listFilters[filterKey] || { keyword: "", status: "all" };
+  }
+
+  function renderListFilter(filterKey, placeholder = "输入关键词", rows = []) {
+    const filter = listFilterValue(filterKey);
+    const statuses = [...new Set(rows.map((row) => row.status).filter(Boolean))];
+    return `
+      <form class="filter-form" data-form="applyListFilter">
+        <input type="hidden" name="filterKey" value="${escapeHtml(filterKey)}" />
+        <div class="field"><label>关键词</label><input name="keyword" value="${escapeHtml(filter.keyword || "")}" placeholder="${escapeHtml(placeholder)}" /></div>
+        <div class="field"><label>状态</label><select name="status">
+          <option value="all">全部状态</option>
+          ${statuses.map((status) => `<option value="${escapeHtml(status)}" ${filter.status === status ? "selected" : ""}>${escapeHtml(statusName[status] || status)}</option>`).join("")}
+        </select></div>
+        <div class="toolbar"><button class="btn primary" type="submit">筛选</button><button class="btn" type="button" data-action="clearListFilter" data-filter-key="${escapeHtml(filterKey)}">清空</button></div>
+      </form>
+    `;
+  }
+
+  function filterListRows(filterKey, rows, fields) {
+    const filter = listFilterValue(filterKey);
+    const keyword = String(filter.keyword || "").trim().toLowerCase();
+    const status = filter.status || "all";
+    return rows.filter((row) => {
+      const hitKeyword = !keyword || fields.some((field) => {
+        const value = typeof field === "function" ? field(row) : row[field];
+        return filterTextValue(value).includes(keyword);
+      });
+      const hitStatus = status === "all" || row.status === status;
+      return hitKeyword && hitStatus;
+    });
+  }
+
+  function filterTextValue(value) {
+    if (Array.isArray(value)) return value.map(filterTextValue).join(" ").toLowerCase();
+    if (value && typeof value === "object") return Object.values(value).map(filterTextValue).join(" ").toLowerCase();
+    return String(value || "").toLowerCase();
+  }
+
   function renderChannelDashboard(user) {
     const account = currentAccount();
     const transactions = visibleTransactions(user);
@@ -1260,15 +1305,13 @@
         </div>
         ${renderMonthlyTrend(summary.monthlyRows)}
       </div>
-      <div class="grid cols-2">
-        <div class="card">
-          <div class="card-header"><div><h3>今日实时流水</h3><p>展示今天新增的客户流水和对应预计结算。</p></div>${featureBadges(true, true)}</div>
-          ${renderDailyRealtimeRows(summary.todayRows, user)}
-        </div>
-        <div class="card">
-          <div class="card-header"><div><h3>待处理结算</h3><p>账单生成后由渠道确认；有异议则提交材料等待总后台终审。</p></div>${featureBadges(true, true)}</div>
-          ${pendingSettlement ? `<div class="button-row"><button class="btn success" data-action="confirmSettlement">确认结算</button><button class="btn danger" data-action="openModal" data-modal="submitDispute" data-id="${pendingSettlement.id}">提交异议</button></div>` : `<div class="empty">暂无待确认结算。</div>`}
-        </div>
+      <div class="card daily-flow-card">
+        <div class="card-header"><div><h3>今日实时流水</h3><p>展示今天新增的客户流水和对应预计结算。</p></div>${featureBadges(true, true)}</div>
+        ${renderDailyRealtimeRows(summary.todayRows, user)}
+      </div>
+      <div class="card">
+        <div class="card-header"><div><h3>待处理结算</h3><p>账单生成后由渠道确认；有异议则提交材料等待总后台终审。</p></div>${featureBadges(true, true)}</div>
+        ${pendingSettlement ? `<div class="button-row"><button class="btn success" data-action="confirmSettlement">确认结算</button><button class="btn danger" data-action="openModal" data-modal="submitDispute" data-id="${pendingSettlement.id}">提交异议</button></div>` : `<div class="empty">暂无待确认结算。</div>`}
       </div>
     `;
   }
@@ -1296,11 +1339,13 @@
   }
 
   function renderBusinessInvites(user) {
-    const rows = state.entities.invites.filter((item) => item.owner === user.accountId);
+    const rawRows = state.entities.invites.filter((item) => item.owner === user.accountId);
+    const rows = filterListRows("businessInvites", rawRows, ["id", "owner", "link", "status", "note", "source", "createdAt", "expiresAt"]);
     return `
       ${pageHeader("客户邀约", "商务生成邀请链接，客户从链接进入独立绑定页提交资料。", `
         <button class="btn primary" data-action="openModal" data-modal="createInvite">生成邀请链接</button>
       `)}
+      ${renderListFilter("businessInvites", "输入链接编号、商务、备注或状态", rawRows)}
       <div class="card">
         <div class="card-header"><div><h3>邀请记录</h3><p>商务后台只管理链接记录，可复制链接发给客户提交资料。</p></div>${featureBadges(true, true)}</div>
         ${renderInvitesTable(rows)}
@@ -1311,11 +1356,13 @@
   function renderBusinessBindings() {
     const account = currentAccount();
     const owner = account?.id || "SW3001";
-    const applications = state.entities.bindingApplications.filter((item) => item.ownerBusiness === owner);
+    const rawApplications = state.entities.bindingApplications.filter((item) => item.ownerBusiness === owner);
+    const applications = filterListRows("businessBindingApplications", rawApplications, ["id", "customerId", "customerName", "customerAccount", "customerCompany", "contact", "ownerBusiness", "sourceLink", "status", "reason", "rejectReason"]);
     const customers = filterCustomers(state.entities.customers.filter((item) => item.ownerBusiness === owner));
     return `
       ${pageHeader("我的客户", "客户通过链接提交资料后进入审批；审批通过前不计佣、不结算。", "")}
       ${renderCustomerFilter()}
+      ${renderListFilter("businessBindingApplications", "输入申请单、客户ID、客户名称、账号或状态", rawApplications)}
       <div class="card">
         <div class="card-header"><div><h3>绑定申请</h3><p>展示客户提交、审批中、审批通过和驳回状态。</p></div>${featureBadges(false, true)}</div>
         ${renderBindingTable(applications)}
@@ -1429,36 +1476,47 @@
   }
 
   function renderAdminAccounts() {
+    const rawApplications = state.entities.accountApplications;
+    const rawAccounts = state.entities.channelAccounts;
+    const filterRows = rawApplications.concat(rawAccounts);
+    const accountApplications = filterListRows("adminAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "username", "status", "source"]);
+    const channelAccounts = filterListRows("adminAccounts", rawAccounts, ["id", "role", "name", "parent", "beneficiary", "contact", "username", "status", "source"]);
     return `
       ${pageHeader("账号治理", "管理招商、运营、商务三层渠道账号；默认密码为 password，首次登录必须修改。", `
         <button class="btn primary" data-action="openModal" data-modal="createChannelAccount">新增渠道账号</button>
       `)}
       ${adminFilterBar(["角色：全部", "状态：待官方终审/启用/驳回", "资料完整度：收款主体、手机号、上级关系", "风险：单账号单角色校验"], `<button class="btn ghost" type="button">导出账号清单</button>`)}
+      ${renderListFilter("adminAccounts", "输入账号ID、名称、手机号、上级、角色或状态", filterRows)}
       <div class="card">
         <div class="card-header"><div><h3>待终审账号资料</h3><p>招商创建运营资料、运营创建商务资料后进入这里。</p></div>${featureBadges(false, true)}</div>
-        ${renderAccountApplications()}
+        ${renderAccountApplications(accountApplications)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>正式渠道账号</h3><p>账号通过终审后才可登录、获客、绑定客户、计佣和结算。</p></div>${featureBadges(true, true)}</div>
-        ${renderChannelAccountsTable()}
+        ${renderChannelAccountsTable(channelAccounts)}
       </div>
     `;
   }
 
   function renderAdminOwnership() {
+    const rawApplications = state.entities.bindingApplications;
+    const rawLedger = state.entities.ownershipLedger;
+    const applications = filterListRows("adminOwnership", rawApplications, ["id", "customerId", "customerName", "customerAccount", "customerCompany", "contact", "ownerBusiness", "sourceLink", "status", "reason", "rejectReason"]);
+    const ledgerRows = filterListRows("adminOwnership", rawLedger, ["customerId", "investor", "operator", "business", "effectiveAt", "basis", "status"]);
     return `
       ${pageHeader("客户归属审批", "客户绑定必须审批，审批通过后写入正式客户归属台账。", "")}
       ${adminFilterBar(["审批状态：待审批", "客户：C9001/用户名/手机号", "来源：邀请链接", "冲突校验：历史归属/重复绑定", "处理人：总后台"], `<button class="btn ghost" type="button">查看冲突规则</button>`)}
+      ${renderListFilter("adminOwnership", "输入客户ID、客户名称、商务、链接或状态", rawApplications.concat(rawLedger))}
       <div class="card">
         <div class="card-header"><div><h3>客户绑定申请</h3><p>总后台审批前不计佣；审批通过后生成客户归属台账。</p></div>${featureBadges(false, true)}</div>
-        ${renderBindingTable(state.entities.bindingApplications, (row) => row.status === "pending_binding_review" ? `
+        ${renderBindingTable(applications, (row) => row.status === "pending_binding_review" ? `
           <button class="btn success" data-action="approveBinding" data-id="${row.id}">通过</button>
           <button class="btn danger" data-action="rejectBinding" data-id="${row.id}">驳回</button>
         ` : "")}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>客户归属台账</h3><p>正式计佣依据，保留招商、运营、商务链路快照。</p></div>${featureBadges(false, true)}</div>
-        ${renderLedgerTable()}
+        ${renderLedgerTable(ledgerRows)}
       </div>
     `;
   }
@@ -1497,7 +1555,10 @@
   }
 
   function renderSettlements(user) {
-    const rows = visibleSettlements(user);
+    const rawRows = visibleSettlements(user);
+    const rawDisputes = visibleDisputes(user);
+    const rows = filterListRows("settlements", rawRows, ["id", "periodStart", "periodEnd", "role", "owner", "ruleName", "cycle", "status"]);
+    const disputes = filterListRows("settlements", rawDisputes, ["id", "settlementId", "owner", "reason", "evidenceNote", "status", "result", "submittedAt"]);
     const isAdmin = user.role === "admin";
     const period = settlementPeriod();
     return `
@@ -1505,27 +1566,38 @@
         ${isAdmin ? `<button class="btn primary" data-action="generateSettlement">生成上月自然月账单</button>` : ""}
       `)}
       ${isAdmin ? adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待渠道确认/待审核/待打款/已打款", "层级：招商/运营/商务", "异常：异议单/人工调整"], `<button class="btn ghost" type="button">生成付款批次</button>`) : ""}
+      ${renderListFilter("settlements", "输入账单、归属账号、规则、账期或状态", rawRows.concat(rawDisputes))}
       <div class="card">
         <div class="card-header"><div><h3>结算单</h3><p>支持渠道确认、异议处理、总后台审核和打款归档。</p></div>${featureBadges(true, true)}</div>
         ${renderSettlementsTable(rows, user)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>结算异议</h3><p>异议从结算单发起，总后台终审后回到结算流。</p></div>${featureBadges(false, true)}</div>
-        ${renderDisputesTable(visibleDisputes(user))}
+        ${renderDisputesTable(disputes)}
       </div>
     `;
   }
 
   function renderWorkorders(user) {
     if (user.role === "admin") {
-      const pendingBindings = state.entities.bindingApplications.filter((item) => item.status === "pending_binding_review");
-      const reviewedBindings = state.entities.bindingApplications.filter((item) => item.status !== "pending_binding_review");
+      const rawAccountApplications = state.entities.accountApplications;
+      const rawPendingBindings = state.entities.bindingApplications.filter((item) => item.status === "pending_binding_review");
+      const rawReviewedBindings = state.entities.bindingApplications.filter((item) => item.status !== "pending_binding_review");
+      const rawDisputes = visibleDisputes(user);
+      const rawWorkorders = state.entities.workorders;
+      const filterRows = rawAccountApplications.concat(rawPendingBindings, rawReviewedBindings, rawDisputes, rawWorkorders);
+      const accountApplications = filterListRows("workorders", rawAccountApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "status"]);
+      const pendingBindings = filterListRows("workorders", rawPendingBindings, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "reason"]);
+      const reviewedBindings = filterListRows("workorders", rawReviewedBindings, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "rejectReason"]);
+      const disputes = filterListRows("workorders", rawDisputes, ["id", "settlementId", "owner", "reason", "evidenceNote", "status", "result"]);
+      const workorders = filterListRows("workorders", rawWorkorders, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
       return `
         ${pageHeader("官方终审", "账号资料、客户归属和结算异议在这里分组处理，每个处理结果都写入业务对象。", "")}
         ${adminFilterBar(["类型：账号终审/客户归属/结算异议", "状态：待处理/已通过/已驳回", "处理人：总后台", "SLA：24 小时内"], `<button class="btn ghost" type="button">查看处理规则</button>`)}
+        ${renderListFilter("workorders", "输入工单、申请单、客户、账号、业务对象或状态", filterRows)}
         <div class="card">
           <div class="card-header"><div><h3>账号资料终审</h3><p>招商创建运营、运营创建商务后，在这里终审启用。</p></div>${featureBadges(false, true)}</div>
-          ${renderAccountApplications()}
+          ${renderAccountApplications(accountApplications)}
         </div>
         <div class="card">
           <div class="card-header"><div><h3>客户归属审批</h3><p>客户提交资料后进入待审；通过前不计佣、不结算。</p></div>${featureBadges(false, true)}</div>
@@ -1540,25 +1612,28 @@
         </div>
         <div class="card">
           <div class="card-header"><div><h3>结算异议终审</h3><p>异议从结算单发起，总后台终审后回到结算流程。</p></div>${featureBadges(false, true)}</div>
-          ${renderDisputesTable(visibleDisputes(user))}
+          ${renderDisputesTable(disputes)}
         </div>
         <div class="card">
           <div class="card-header"><div><h3>工单记录</h3><p>每个审批、异议和处理动作都有业务对象、状态和处理人。</p></div>${featureBadges(true, true)}</div>
-          ${renderWorkorderTable(state.entities.workorders)}
+          ${renderWorkorderTable(workorders)}
         </div>
       `;
     }
+    const rawRows = visibleWorkorders(user);
+    const rows = filterListRows("workorders", rawRows, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
     return `
       ${pageHeader("官方终审", "承接账号资料终审、客户归属审批、结算异议、补充材料和人工调整，不做泛化留言板。", "")}
+      ${renderListFilter("workorders", "输入工单、标题、业务对象或状态", rawRows)}
       <div class="card">
         <div class="card-header"><div><h3>工单列表</h3><p>每个工单都必须有业务对象、状态、处理人和结果。</p></div>${featureBadges(true, true)}</div>
-        ${renderWorkorderTable(visibleWorkorders(user))}
+        ${renderWorkorderTable(rows)}
       </div>
     `;
   }
 
   function renderCustomerChannelOwnership() {
-    const rows = state.entities.ownershipLedger.map((ledger) => {
+    const rawRows = state.entities.ownershipLedger.map((ledger) => {
       const customer = state.entities.customers.find((item) => item.id === ledger.customerId) || {};
       return {
         userId: ledger.customerId,
@@ -1571,9 +1646,11 @@
         basis: ledger.basis,
       };
     });
+    const rows = filterListRows("customerChannelOwnership", rawRows, ["userId", "customerAccount", "customerName", "business", "operator", "investor", "effectiveAt", "basis"]);
     return `
       ${pageHeader("客户渠道归属", "查看所有已与商务绑定的客户，以及对应招商、运营、商务链路。", "")}
       ${adminFilterBar(["用户ID：全部", "客户账号：全部", "商务：全部", "状态：已生效"], `<button class="btn ghost" type="button">导出归属清单</button>`)}
+      ${renderListFilter("customerChannelOwnership", "输入用户ID、客户账号、客户名称、商务、运营或招商", rawRows)}
       <div class="card">
         <div class="card-header"><div><h3>客户与渠道链路</h3><p>客户通过归属审批后才会进入本表，作为计佣和结算依据。</p></div>${featureBadges(true, true)}</div>
         ${table([
@@ -1592,35 +1669,46 @@
 
   function renderBdSettlement(user) {
     const period = settlementPeriod();
+    const rawBills = user.role === "externalBD"
+      ? state.entities.bdBills.filter((item) => item.owner === user.accountId)
+      : state.entities.bdBills;
+    const rawDisputes = visibleBdDisputes(user);
+    const bills = filterListRows("bdSettlement", rawBills, ["id", "periodStart", "periodEnd", "owner", "model", "usageType", "billingType", "usageUnit", "status"]);
+    const disputes = filterListRows("bdSettlement", rawDisputes, ["id", "billId", "owner", "reason", "evidenceNote", "status", "result", "submittedAt"]);
     return `
       ${pageHeader("BD 结算", "按自然月生成模型BD返点账单，并处理线下打款状态。", `
         <button class="btn primary" data-action="generateBdBill">生成上月自然月BD账单</button>
       `)}
       ${adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待BD确认/待打款/异议处理中/已打款", "对象：模型BD", "来源：BD 模型关联"], "")}
+      ${renderListFilter("bdSettlement", "输入BD账单、模型、BD账号、账期或状态", rawBills.concat(rawDisputes))}
       <div class="card">
         <div class="card-header"><div><h3>BD 账单</h3><p>总后台生成账单，模型BD确认后进入打款。</p></div>${featureBadges(true, true)}</div>
-        ${renderBdBillsTable(user)}
+        ${renderBdBillsTable(user, bills)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>BD 账单异议</h3><p>模型BD提交异议后，总后台终审处理并回到账单流程。</p></div>${featureBadges(false, true)}</div>
-        ${renderBdDisputesTable(visibleBdDisputes(user))}
+        ${renderBdDisputesTable(disputes)}
       </div>
     `;
   }
 
   function renderAudit() {
+    const rows = filterListRows("audit", state.entities.audit, ["time", "actor", "action", "result", "status"]);
     return `
       ${pageHeader("审计日志", "所有关键动作都写入审计日志，用于研发验收和运营追溯。", "")}
+      ${renderListFilter("audit", "输入时间、操作人、动作或结果", state.entities.audit)}
       <div class="card">
-        ${renderAuditTable()}
+        ${renderAuditTable(rows)}
       </div>
     `;
   }
 
   function renderMessages(user) {
-    const rows = visibleWorkorders(user).map((item) => ({ title: item.title, status: item.status, related: item.target, time: item.createdAt }));
+    const rawRows = visibleWorkorders(user).map((item) => ({ title: item.title, status: item.status, related: item.target, time: item.createdAt }));
+    const rows = filterListRows("messages", rawRows, ["title", "status", "related", "time"]);
     return `
       ${pageHeader("工单消息", "状态变化、审批结论、异议处理和付款完成都应通知对应角色。", "")}
+      ${renderListFilter("messages", "输入消息、业务对象、时间或状态", rawRows)}
       <div class="card">
         ${table([
           { key: "title", label: "消息" },
@@ -1711,34 +1799,44 @@
     if (user.role === "investor") return renderInvestorHierarchy(user);
     if (user.role === "operator") return renderOperatorHierarchy(user);
     const account = currentAccount();
-    const rows = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
+    const rawRows = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
+    const rawApplications = state.entities.accountApplications.filter((item) => item.createdBy === account?.id);
+    const rows = filterListRows("childAccounts", rawRows, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
+    const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     return `
       ${pageHeader("我的团队", "渠道可填写团队成员资料，但启用必须经过总后台官方终审。", `
         ${user.role === "investor" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>` : ""}
         ${user.role === "operator" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>` : ""}
       `)}
+      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色、客户或状态", rawRows.concat(rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>正式团队账号</h3><p>仅展示已启用账号；待审资料在总后台终审。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(rows)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
-        ${renderAccountApplications(state.entities.accountApplications.filter((item) => item.createdBy === account?.id))}
+        ${renderAccountApplications(applications)}
       </div>
     `;
   }
 
   function renderInvestorHierarchy(user) {
     const account = currentAccount();
-    const operators = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
+    const rawOperators = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
+    const operators = filterListRows("childAccounts", rawOperators, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
     const operatorIds = operators.map((item) => item.id);
-    const businesses = state.entities.channelAccounts.filter((item) => operatorIds.includes(item.parent));
+    const rawBusinesses = state.entities.channelAccounts.filter((item) => state.entities.channelAccounts.filter((operator) => operator.parent === account?.id).map((operator) => operator.id).includes(item.parent));
+    const businesses = filterListRows("childAccounts", rawBusinesses, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
     const businessIds = businesses.map((item) => item.id);
-    const customers = state.entities.customers.filter((item) => businessIds.includes(item.ownerBusiness));
+    const rawCustomers = state.entities.customers.filter((item) => rawBusinesses.map((business) => business.id).includes(item.ownerBusiness));
+    const customers = filterCustomers(filterListRows("childAccounts", rawCustomers, ["id", "name", "account", "company", "contact", "status", "ownerBusiness"]));
+    const rawApplications = state.entities.accountApplications.filter((item) => item.createdBy === account?.id);
+    const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     return `
       ${pageHeader("我的团队", "招商可查看自己的运营、运营的商务，以及商务已审批通过的客户。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>
       `)}
+      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、客户、角色或状态", rawOperators.concat(rawBusinesses, rawCustomers, rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>运营账号</h3><p>直属运营，通过官方终审后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(operators)}
@@ -1753,20 +1851,24 @@
       </div>
       <div class="card">
         <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
-        ${renderAccountApplications(state.entities.accountApplications.filter((item) => item.createdBy === account?.id))}
+        ${renderAccountApplications(applications)}
       </div>
     `;
   }
 
   function renderOperatorHierarchy(user) {
     const account = currentAccount();
-    const businesses = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
-    const businessIds = businesses.map((item) => item.id);
-    const customers = state.entities.customers.filter((item) => businessIds.includes(item.ownerBusiness));
+    const rawBusinesses = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
+    const businesses = filterListRows("childAccounts", rawBusinesses, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
+    const rawCustomers = state.entities.customers.filter((item) => rawBusinesses.map((business) => business.id).includes(item.ownerBusiness));
+    const customers = filterCustomers(filterListRows("childAccounts", rawCustomers, ["id", "name", "account", "company", "contact", "status", "ownerBusiness"]));
+    const rawApplications = state.entities.accountApplications.filter((item) => item.createdBy === account?.id);
+    const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     return `
       ${pageHeader("我的团队", "运营可查看自己的商务，以及商务已审批通过的客户。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>
       `)}
+      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、客户、角色或状态", rawBusinesses.concat(rawCustomers, rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>商务账号</h3><p>正式商务账号，通过官方终审后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(businesses)}
@@ -1777,16 +1879,18 @@
       </div>
       <div class="card">
         <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
-        ${renderAccountApplications(state.entities.accountApplications.filter((item) => item.createdBy === account?.id))}
+        ${renderAccountApplications(applications)}
       </div>
     `;
   }
 
   function renderBdModels(user = currentUser()) {
     if (user.role === "externalBD") {
-      const rows = state.entities.bdRelations.filter((item) => item.owner === user.accountId);
+      const rawRows = state.entities.bdRelations.filter((item) => item.owner === user.accountId);
+      const rows = filterListRows("bdModels", rawRows, ["id", "owner", "model", "usageType", "billingType", "usageUnit", "basis", "cycle", "settlementAccount", "latestBill", "status"]);
       return `
         ${pageHeader("模型用量", "查看与自己关联的模型、日/周/月用量、返点口径和最近账单。", "")}
+        ${renderListFilter("bdModels", "输入模型、用量类型、计费类型、账单或状态", rawRows)}
         <div class="grid cols-4">
           ${metric("关联模型", rows.length, "总后台维护")}
           ${metric("计费消耗金额", money(rows.reduce((sum, item) => sum + modelBillableAmount(item), 0)), "模型接口读取")}
@@ -1799,33 +1903,48 @@
         </div>
       `;
     }
+    const rawAccounts = state.entities.bdAccounts;
+    const rawModels = state.entities.models;
+    const rawRelations = state.entities.bdRelations;
+    const filterRows = rawAccounts.concat(rawModels, rawRelations);
+    const bdAccounts = filterListRows("bdModelsAdmin", rawAccounts, ["id", "name", "username", "contact", "beneficiary", "payment", "status", "source"]);
+    const models = filterListRows("bdModelsAdmin", rawModels, ["id", "name", "provider", "usageType", "billingType", "usageUnit", "status"]);
+    const relations = filterListRows("bdModelsAdmin", rawRelations, ["id", "owner", "model", "usageType", "billingType", "usageUnit", "basis", "cycle", "settlementAccount", "latestBill", "status"]);
     return `
       ${pageHeader("BD 模型关联", "维护模型BD账号、模型关系、消耗监控和返点口径；模型BD不进入招商/运营/商务客户链路。", `
         <button class="btn primary" data-action="openModal" data-modal="createModelBdAccount">新增模型BD</button>
         <button class="btn" data-action="openModal" data-modal="createBdRelation">新建模型关联</button>
       `)}
+      ${renderListFilter("bdModelsAdmin", "输入BD账号、模型、用量类型、计费类型或状态", filterRows)}
       <div class="card">
         <div class="card-header"><div><h3>模型BD账号</h3><p>已启用的模型BD账号，可用于模型关联和 BD 结算。</p></div></div>
-        ${renderBdAccountsTable()}
+        ${renderBdAccountsTable(bdAccounts)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>可选模型列表</h3><p>新建模型关联时只能从这里的模型列表选择。</p></div></div>
-        ${renderModelCatalogTable()}
+        ${renderModelCatalogTable(models)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>BD 模型关联与数据监控</h3><p>监控模型接口返回的日/周/月用量、计价快照、计费消耗金额和最近账单。</p></div></div>
-        ${renderBdRelationsTable()}
+        ${renderBdRelationsTable(relations)}
       </div>
     `;
   }
 
   function renderBdBills(user) {
+    const rawBills = user.role === "externalBD"
+      ? state.entities.bdBills.filter((item) => item.owner === user.accountId)
+      : state.entities.bdBills;
+    const rawDisputes = visibleBdDisputes(user);
+    const bills = filterListRows("bdBills", rawBills, ["id", "periodStart", "periodEnd", "owner", "model", "usageType", "billingType", "usageUnit", "status"]);
+    const disputes = filterListRows("bdBills", rawDisputes, ["id", "billId", "owner", "reason", "evidenceNote", "status", "result", "submittedAt"]);
     return `
       ${pageHeader("BD账单", "模型BD查看自己的模型返点账单，确认后进入总后台打款。", "")}
-      <div class="card">${renderBdBillsTable(user)}</div>
+      ${renderListFilter("bdBills", "输入BD账单、模型、账期、异议原因或状态", rawBills.concat(rawDisputes))}
+      <div class="card">${renderBdBillsTable(user, bills)}</div>
       <div class="card">
         <div class="card-header"><div><h3>BD 账单异议</h3><p>对模型用量、比例、账期或金额有疑问时，从账单发起异议。</p></div></div>
-        ${renderBdDisputesTable(visibleBdDisputes(user))}
+        ${renderBdDisputesTable(disputes)}
       </div>
     `;
   }
@@ -2012,7 +2131,7 @@
     ], rows, actions);
   }
 
-  function renderLedgerTable() {
+  function renderLedgerTable(rows = state.entities.ownershipLedger) {
     return table([
       { key: "customerId", label: "客户" },
       { key: "investor", label: "招商" },
@@ -2020,7 +2139,7 @@
       { key: "business", label: "商务" },
       { key: "effectiveAt", label: "生效时间" },
       { key: "basis", label: "计佣依据" },
-    ], state.entities.ownershipLedger);
+    ], rows);
   }
 
   function renderTransactionsTable(rows) {
@@ -2158,7 +2277,7 @@
     ], rows, (row) => currentUser()?.role === "admin" ? `<button class="btn" data-action="openModal" data-modal="editModelBdAccount" data-id="${row.id}">编辑</button><button class="btn" data-action="resetModelBdPassword" data-id="${row.id}">重置密码</button>` : "");
   }
 
-  function renderModelCatalogTable() {
+  function renderModelCatalogTable(rows = state.entities.models) {
     return table([
       { key: "id", label: "模型ID" },
       { key: "name", label: "模型名称" },
@@ -2168,7 +2287,7 @@
       { key: "usageUnit", label: "用量单位" },
       { key: "unitPriceSnapshot", label: "模型结算单价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
       { key: "status", label: "状态", type: "status" },
-    ], state.entities.models);
+    ], rows);
   }
 
   function renderBdRelationsTable(rows = state.entities.bdRelations) {
@@ -2193,10 +2312,10 @@
     ], rows);
   }
 
-  function renderBdBillsTable(user = currentUser()) {
-    const rows = user.role === "externalBD"
+  function renderBdBillsTable(user = currentUser(), rows = null) {
+    const visibleRows = rows || (user.role === "externalBD"
       ? state.entities.bdBills.filter((item) => item.owner === user.accountId)
-      : state.entities.bdBills;
+      : state.entities.bdBills);
     return table([
       { key: "id", label: "账单" },
       { key: "periodStart", label: "账期开始" },
@@ -2212,7 +2331,7 @@
       { key: "rate", label: "比例", type: "percent" },
       { key: "amount", label: "返点金额", type: "money" },
       { key: "status", label: "状态", type: "status" },
-    ], rows, (row) => {
+    ], visibleRows, (row) => {
       if (user.role === "admin") {
         if (row.status === "disputed") return `<button class="btn success" data-action="openModal" data-modal="reviewBdDispute" data-id="${row.id}">异议终审</button>`;
         if (row.status === "pending_payment") return `<button class="btn success" data-action="payBdBill" data-id="${row.id}">登记打款</button>`;
@@ -2241,13 +2360,13 @@
     ], rows, (row) => currentUser()?.role === "admin" && row.status === "disputed" ? `<button class="btn success" data-action="openModal" data-modal="reviewBdDispute" data-id="${row.billId}">终审</button>` : "");
   }
 
-  function renderAuditTable() {
+  function renderAuditTable(rows = state.entities.audit) {
     return table([
       { key: "time", label: "时间" },
       { key: "actor", label: "操作人" },
       { key: "action", label: "动作" },
       { key: "result", label: "结果" },
-    ], state.entities.audit);
+    ], rows);
   }
 
   function renderRightPanel(user) {
@@ -2627,11 +2746,12 @@
       saveHelpArticle,
       applyCustomerFilter,
       applyPerformanceFilter,
+      applyListFilter,
       changeOwnPassword,
     };
     if (forms[formName]) {
       const keepModalOpen = forms[formName](formData) === false;
-      if (!keepModalOpen && !["applyCustomerFilter", "applyPerformanceFilter", "changeOwnPassword", "submitCustomerBindingForm"].includes(formName)) {
+      if (!keepModalOpen && !["applyCustomerFilter", "applyPerformanceFilter", "applyListFilter", "changeOwnPassword", "submitCustomerBindingForm"].includes(formName)) {
         state.ui.modal = null;
       }
     }
@@ -2669,6 +2789,7 @@
       resetModelBdPassword,
       clearCustomerFilter,
       clearPerformanceFilter,
+      clearListFilter,
       approveAccount,
       rejectAccount,
       runMainFlow,
@@ -3503,6 +3624,25 @@
     state.ui.filters.performanceKeyword = "";
     state.ui.filters.performanceOwner = "all";
     addAudit(actorName(), "清空返点筛选", "返点流水恢复全部");
+  }
+
+  function applyListFilter(formData) {
+    const filterKey = formValue(formData, "filterKey");
+    if (!filterKey) return;
+    state.ui.filters.listFilters = state.ui.filters.listFilters || {};
+    state.ui.filters.listFilters[filterKey] = {
+      keyword: formValue(formData, "keyword"),
+      status: formValue(formData, "status") || "all",
+    };
+    addAudit(actorName(), "应用列表筛选", `${filterKey} 筛选条件已应用`);
+  }
+
+  function clearListFilter(id, dataset = {}) {
+    const filterKey = dataset.filterKey || id;
+    if (!filterKey) return;
+    state.ui.filters.listFilters = state.ui.filters.listFilters || {};
+    delete state.ui.filters.listFilters[filterKey];
+    addAudit(actorName(), "清空列表筛选", `${filterKey} 恢复全部`);
   }
 
   function changeOwnPassword(formData) {
