@@ -946,6 +946,54 @@ button {
   font-size: 12px;
 }
 
+.trend-list {
+  display: grid;
+  gap: 10px;
+}
+
+.trend-row {
+  display: grid;
+  grid-template-columns: 74px minmax(180px, 1fr) minmax(220px, 0.8fr);
+  gap: 12px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--panel-soft);
+}
+
+.trend-row strong {
+  font-size: 13px;
+}
+
+.trend-bars {
+  display: grid;
+  gap: 6px;
+}
+
+.trend-bars span,
+.trend-bars em {
+  display: block;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.trend-bars span {
+  background: var(--primary);
+}
+
+.trend-bars em {
+  background: var(--green);
+}
+
+.trend-values {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
 .badge-row {
   display: flex;
   flex-wrap: wrap;
@@ -1472,7 +1520,8 @@ tr:last-child td {
   }
 
   .admin-dashboard-grid,
-  .admin-module-grid {
+  .admin-module-grid,
+  .trend-row {
     grid-template-columns: 1fr;
   }
 }

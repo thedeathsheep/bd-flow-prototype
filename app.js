@@ -34,7 +34,7 @@
     bound: "已绑定",
     unbound: "未绑定",
     raw: "原始流水",
-    calculated: "已计算有效基数",
+    calculated: "已计算返点基数",
     pending_channel_confirm: "待渠道确认",
     channel_confirmed: "渠道已确认",
     disputed: "异议处理中",
@@ -59,6 +59,7 @@
       ["help", "规则与协议"],
     ],
     business: [
+      ["dashboard", "数据看板"],
       ["performance", "返点流水"],
       ["invites", "客户邀约"],
       ["bindings", "我的客户"],
@@ -67,6 +68,7 @@
       ["help", "规则与协议"],
     ],
     operator: [
+      ["dashboard", "数据看板"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
       ["settlements", "结算确认"],
@@ -74,6 +76,7 @@
       ["help", "规则与协议"],
     ],
     investor: [
+      ["dashboard", "数据看板"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
       ["settlements", "结算确认"],
@@ -240,6 +243,11 @@
     next.entities.customers = (next.entities.customers || []).map((item) => ({
       company: "",
       contact: "",
+      ...item,
+    }));
+    next.entities.transactions = (next.entities.transactions || []).map((item) => ({
+      createdAt: item.createdAt || nowText(),
+      effectiveBase: item.effectiveBase ?? rebateBaseForTransaction(item, "充值"),
       ...item,
     }));
     next.entities.disputes = (next.entities.disputes || []).map((item) => ({
@@ -453,9 +461,9 @@
   function defaultPageForRole(role) {
     return {
       admin: "accounts",
-      investor: "performance",
-      operator: "performance",
-      business: "performance",
+      investor: "dashboard",
+      operator: "dashboard",
+      business: "dashboard",
       externalBD: "models",
     }[role] || "performance";
   }
@@ -875,6 +883,7 @@
       bdRelations: renderBdModels,
       audit: renderAudit,
       customerChannelOwnership: renderCustomerChannelOwnership,
+      dashboard: renderChannelDashboard,
       invites: renderBusinessInvites,
       bindings: renderBusinessBindings,
       messages: renderMessages,
@@ -1048,7 +1057,7 @@
           <input type="hidden" name="settlementId" value="${escapeHtml(row.id)}" />
           <div class="field"><label>结算单</label><input value="${escapeHtml(row.id)}" readonly /></div>
           <div class="field"><label>当前返点金额</label><input value="${escapeHtml(money(row.amount))}" readonly /></div>
-          <div class="field"><label>异议原因</label><textarea name="reason" placeholder="说明有效基数、规则、归属或金额哪里需要复核"></textarea></div>
+          <div class="field"><label>异议原因</label><textarea name="reason" placeholder="说明返点基数、规则、归属或金额哪里需要复核"></textarea></div>
           <div class="field"><label>期望调整金额</label><input name="expectedAdjustment" placeholder="如 30，减少则填 -30" /></div>
           <div class="field"><label>材料说明</label><textarea name="evidenceNote" placeholder="说明截图、账单、客户记录等材料内容"></textarea></div>
           <div class="field"><label>上传材料</label><input name="attachments" type="file" multiple accept=".jpg,.jpeg,.png,.webp,.pdf,.doc,.docx,.xls,.xlsx,.csv,.txt" /></div>
@@ -1223,40 +1232,42 @@
 
   function renderChannelDashboard(user) {
     const account = currentAccount();
-    const scope = getScopeAccountIds(account);
-    const customerRows = state.entities.customers.filter((item) => scope.includes(item.ownerBusiness));
+    const transactions = visibleTransactions(user);
     const settlementRows = visibleSettlements(user);
     const pendingSettlement = settlementRows.find((item) => item.status === "pending_channel_confirm");
+    const summary = channelDashboardSummary(user, transactions, settlementRows);
     return `
-      ${pageHeader(`${roleName[user.role]}返点流水`, "按当前账号的团队链路过滤客户、业绩和结算。", `
+      ${pageHeader(`${roleName[user.role]}数据看板`, "按当前账号的团队链路展示流水、预计结算、历史累计和今日实时增量。", `
+        <button class="btn" data-page="performance">查看返点流水</button>
         ${user.role === "business" ? `<button class="btn primary" data-page="invites">进入客户邀约</button>` : ""}
       `)}
       <div class="grid cols-4">
-        ${metric("当前账号", account?.id || "-", "单账号单角色")}
-        ${metric("可见客户", customerRows.length, "审批通过后可见")}
-        ${metric("预估返点", money(calcVisibleRebate(user)), "按权限汇总")}
-        ${metric("待确认结算", settlementRows.filter((item) => item.status === "pending_channel_confirm").length, "渠道侧动作")}
+        ${metric("本账期预计结算", money(summary.currentExpectedSettlement), `${summary.currentPeriodLabel} 可见链路`)}
+        ${metric("上账期结算", money(summary.previousSettlement), summary.previousPeriodLabel)}
+        ${metric("历史结算总额", money(summary.historySettlement), "按月汇总")}
+        ${metric("今日预计结算", `今日 + ${money(summary.todayExpectedSettlement)}`, "实时预估")}
+      </div>
+      <div class="grid cols-4">
+        ${metric("本期流水总额", money(summary.currentFlow), "充值 + 消费")}
+        ${metric("上账期流水", money(summary.previousFlow), summary.previousPeriodLabel)}
+        ${metric("历史流水总额", money(summary.historyFlow), "按月汇总")}
+        ${metric("今日流水", `今日 + ${money(summary.todayFlow)}`, "实时产生")}
       </div>
       <div class="card">
         <div class="card-header">
-          <div><h3>角色可操作流程</h3><p>招商创建运营资料；运营创建商务资料；商务生成邀请链接和确认结算。</p></div>
+          <div><h3>每月趋势</h3><p>展示可见链路内每月流水和预计结算额。</p></div>
           ${featureBadges(true, true)}
         </div>
-        <div class="button-row">
-          ${user.role === "investor" ? `<button class="btn primary" data-action="createOperatorDraft">创建运营资料</button>` : ""}
-          ${user.role === "operator" ? `<button class="btn primary" data-action="createBusinessDraft">创建商务资料</button>` : ""}
-          ${user.role === "business" ? `<button class="btn primary" data-page="invites">生成并管理邀请链接</button><button class="btn" data-page="bindings">查看客户申请</button>` : ""}
-          ${pendingSettlement ? `<button class="btn success" data-action="confirmSettlement">确认结算</button><button class="btn danger" data-action="openModal" data-modal="submitDispute" data-id="${pendingSettlement.id}">提交异议</button>` : ""}
-        </div>
+        ${renderMonthlyTrend(summary.monthlyRows)}
       </div>
       <div class="grid cols-2">
         <div class="card">
-          <div class="card-header"><div><h3>客户归属</h3><p>审批前不计入业绩；审批通过后写入台账。</p></div>${featureBadges(false, true)}</div>
-          ${renderCustomerTable(customerRows)}
+          <div class="card-header"><div><h3>今日实时流水</h3><p>展示今天新增的客户流水和对应预计结算。</p></div>${featureBadges(true, true)}</div>
+          ${renderDailyRealtimeRows(summary.todayRows, user)}
         </div>
         <div class="card">
-          <div class="card-header"><div><h3>待处理事项</h3><p>渠道侧只处理与自己链路相关的任务。</p></div>${featureBadges(true, true)}</div>
-          ${renderWorkorderTable(visibleWorkorders(user))}
+          <div class="card-header"><div><h3>待处理结算</h3><p>账单生成后由渠道确认；有异议则提交材料等待总后台终审。</p></div>${featureBadges(true, true)}</div>
+          ${pendingSettlement ? `<div class="button-row"><button class="btn success" data-action="confirmSettlement">确认结算</button><button class="btn danger" data-action="openModal" data-modal="submitDispute" data-id="${pendingSettlement.id}">提交异议</button></div>` : `<div class="empty">暂无待确认结算。</div>`}
         </div>
       </div>
     `;
@@ -1465,11 +1476,11 @@
       <div class="grid cols-4">
         ${metric("充值流水", money(transactions.reduce((sum, item) => sum + item.recharge, 0)), "原始账务")}
         ${metric("消费流水", money(transactions.reduce((sum, item) => sum + item.consume, 0)), "消费金额")}
-        ${metric("有效调整", money(transactions.reduce((sum, item) => sum + item.refund + item.coupon + item.gift, 0)), "核算时自动处理")}
-        ${metric("有效基数", money(transactions.reduce((sum, item) => sum + item.effectiveBase, 0)), "用于返点")}
+        ${metric("退款扣减", money(transactions.reduce((sum, item) => sum + item.refund, 0)), "从返点基数扣除")}
+        ${metric("返点基数", money(transactions.reduce((sum, item) => sum + rebateBaseForCurrentUser(item, user), 0)), "优惠券和赠送额度参与返点")}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>交易明细</h3><p>每笔流水保留客户、归属链路、有效基数和规则版本。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>交易明细</h3><p>每笔流水保留客户、归属链路、返点基数和规则版本。</p></div>${featureBadges(true, true)}</div>
         ${renderTransactionsTable(transactions)}
       </div>
       ${!isAdmin && currentUser()?.role !== "externalBD" ? `
@@ -1863,6 +1874,81 @@
     `;
   }
 
+  function monthLabel(offset = 0) {
+    const date = new Date();
+    date.setMonth(date.getMonth() + offset);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  }
+
+  function isTodayTransaction(tx) {
+    return String(tx.createdAt || dateOnly(new Date())).slice(0, 10) === dateOnly(new Date());
+  }
+
+  function channelDashboardSummary(user, transactions = visibleTransactions(user), settlementRows = visibleSettlements(user)) {
+    const currentFlow = roundMoney(transactions.reduce((sum, item) => sum + transactionFlowTotal(item), 0));
+    const projectedSettlement = roundMoney(projectedSettlementForTransactions(user, transactions));
+    const currentExpectedSettlement = roundMoney(settlementRows.length ? settlementRows.reduce((sum, item) => sum + item.amount, 0) : projectedSettlement);
+    const todayRows = transactions.filter(isTodayTransaction);
+    const todayFlow = roundMoney(todayRows.reduce((sum, item) => sum + transactionFlowTotal(item), 0));
+    const todayExpectedSettlement = roundMoney(projectedSettlementForTransactions(user, todayRows));
+    const multipliers = [0.72, 0.84, 0.93, 1];
+    const monthlyRows = multipliers.map((factor, index) => ({
+      period: monthLabel(index - multipliers.length + 1),
+      flow: roundMoney(currentFlow * factor),
+      settlement: roundMoney(currentExpectedSettlement * factor),
+    }));
+    const previous = monthlyRows[monthlyRows.length - 2] || { flow: 0, settlement: 0, period: monthLabel(-1) };
+    return {
+      currentPeriodLabel: monthLabel(0),
+      previousPeriodLabel: previous.period,
+      currentFlow,
+      previousFlow: previous.flow,
+      historyFlow: roundMoney(monthlyRows.reduce((sum, item) => sum + item.flow, 0)),
+      todayFlow,
+      currentExpectedSettlement,
+      previousSettlement: previous.settlement,
+      historySettlement: roundMoney(monthlyRows.reduce((sum, item) => sum + item.settlement, 0)),
+      todayExpectedSettlement,
+      todayRows,
+      monthlyRows,
+    };
+  }
+
+  function renderMonthlyTrend(rows) {
+    if (!rows.length) return `<div class="empty">暂无数据。</div>`;
+    const maxFlow = Math.max(...rows.map((item) => item.flow), 1);
+    const maxSettlement = Math.max(...rows.map((item) => item.settlement), 1);
+    return `
+      <div class="trend-list">
+        ${rows.map((item) => `
+          <div class="trend-row">
+            <strong>${escapeHtml(item.period)}</strong>
+            <div class="trend-bars">
+              <span style="width:${Math.max(4, Math.round((item.flow / maxFlow) * 100))}%"></span>
+              <em style="width:${Math.max(4, Math.round((item.settlement / maxSettlement) * 100))}%"></em>
+            </div>
+            <div class="trend-values">
+              <span>流水 ${escapeHtml(money(item.flow))}</span>
+              <span>预计结算 ${escapeHtml(money(item.settlement))}</span>
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function renderDailyRealtimeRows(rows, user) {
+    if (!rows.length) return `<div class="empty">今日暂无新增流水。</div>`;
+    return table([
+      { key: "customerId", label: "客户ID" },
+      { key: "downstream", label: "来源链路", value: (row) => downstreamPath(row, user) },
+      { key: "recharge", label: "充值", type: "money" },
+      { key: "consume", label: "消费", type: "money" },
+      { key: "refund", label: "退款扣减", type: "money" },
+      { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, user), type: "money" },
+    ], rows);
+  }
+
   function renderMainFlowActions() {
     return `
       <div class="button-row ops-flow">
@@ -1950,7 +2036,7 @@
       { key: "refund", label: "退款", type: "money" },
       { key: "coupon", label: "优惠券", type: "money" },
       { key: "gift", label: "赠送额度", type: "money" },
-      { key: "effectiveBase", label: "有效基数", type: "money" },
+      { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, currentUser()), type: "money" },
       { key: "status", label: "状态", type: "status" },
     ], rows);
   }
@@ -1976,7 +2062,7 @@
       { key: "owner", label: "归属账号" },
       { key: "ruleName", label: "适用规则" },
       { key: "cycle", label: "返佣周期" },
-      { key: "base", label: "有效基数", type: "money" },
+      { key: "base", label: "返点基数", type: "money" },
       { key: "rate", label: "比例", type: "percent" },
       { key: "amount", label: "返点金额", type: "money" },
       { key: "status", label: "状态", type: "status" },
@@ -2196,7 +2282,7 @@
       ["invite", "商务生成邀请链接", "系统记录链接、归属商务和生成时组织链路。"],
       ["binding", "客户提交绑定申请", "客户归属进入待官方审批，不计佣。"],
       ["approval", "总后台审批归属", "通过后写入客户归属台账。"],
-      ["performance", "产生业绩并计算返点", "扣除退款、赠送额度、优惠券，生成有效基数。"],
+      ["performance", "产生业绩并计算返点", "退款扣减返点基数，优惠券和赠送额度参与返点。"],
       ["settlement", "生成结算单", "结算进入待渠道确认。"],
       ["confirm", "渠道确认或提交异议", "确认后总后台审核；异议进入终审。"],
       ["pay", "总后台审核打款归档", "结算完成，历史可追溯。"],
@@ -2231,7 +2317,7 @@
       ["邀请链接", latestInvite ? `${latestInvite.id} · ${statusName[inviteEffectiveStatus(latestInvite)]}` : "未生成"],
       ["客户绑定", latestBinding ? `${latestBinding.id} · ${statusName[latestBinding.status]}` : "未提交"],
       ["归属台账", e.ownershipLedger.length ? `${e.ownershipLedger.length} 条正式归属` : "未写入"],
-      ["交易流水", e.transactions.length ? `${e.transactions.length} 条，合计 ${money(e.transactions.reduce((sum, item) => sum + item.effectiveBase, 0))}` : "未产生"],
+      ["交易流水", e.transactions.length ? `${e.transactions.length} 条，合计 ${money(e.transactions.reduce((sum, item) => sum + rebateBaseForTransaction(item, "充值"), 0))}` : "未产生"],
       ["结算状态", latestSettlement ? `${latestSettlement.id} · ${statusName[latestSettlement.status]}` : "未生成"],
       ["异议状态", e.disputes.length ? `${e.disputes[0].id} · ${statusName[e.disputes[0].status] || e.disputes[0].status}` : "无异议"],
     ];
@@ -2365,9 +2451,47 @@
     return `${rule.name} / ${percent(rule.rate)}${rule.status === "active" ? "" : " / 停用"}`;
   }
 
+  function transactionFlowTotal(tx) {
+    return Number(tx.recharge || 0) + Number(tx.consume || 0);
+  }
+
+  function rebateBaseForTransaction(tx, basis = "充值") {
+    const rawAmount = basis === "消费" ? Number(tx.consume || 0) : Number(tx.recharge || 0);
+    return Math.max(0, rawAmount - Number(tx.refund || 0));
+  }
+
+  function rebateBaseForCurrentUser(tx, user = currentUser()) {
+    const account = user?.role === "admin" ? null : currentAccount();
+    const rule = account ? ruleForSettlement(account.role, account.id) : null;
+    return rebateBaseForTransaction(tx, rule?.basis || "充值");
+  }
+
   function settlementBaseForRule(tx, rule) {
-    if (rule?.basis === "消费") return tx.consume;
-    return tx.effectiveBase;
+    return rebateBaseForTransaction(tx, rule?.basis || "充值");
+  }
+
+  function projectedSettlementForTransactions(user, rows = visibleTransactions(user)) {
+    if (!user || user.role === "admin" || user.role === "externalBD") return 0;
+    const account = currentAccount();
+    const scope = getScopeAccountIds(account);
+    return rows.reduce((sum, tx) => {
+      const specs = [
+        { role: "business", owner: tx.business },
+        { role: "operator", owner: tx.operator },
+        { role: "investor", owner: tx.investor },
+      ];
+      const amount = specs.reduce((innerSum, item) => {
+        if (!scope.includes(item.owner)) return innerSum;
+        const rule = ruleForSettlement(item.role, item.owner);
+        if (!rule) return innerSum;
+        return innerSum + rebateBaseForTransaction(tx, rule.basis) * rule.rate;
+      }, 0);
+      return sum + amount;
+    }, 0);
+  }
+
+  function roundMoney(value) {
+    return Math.round(Number(value || 0) * 100) / 100;
   }
 
   function downstreamPath(row, user) {
@@ -2425,7 +2549,9 @@
   }
 
   function calcVisibleRebate(user) {
-    return visibleSettlements(user).reduce((sum, item) => sum + item.amount, 0);
+    const rows = visibleSettlements(user);
+    if (rows.length) return rows.reduce((sum, item) => sum + item.amount, 0);
+    return projectedSettlementForTransactions(user);
   }
 
   function bindActions() {
@@ -2838,10 +2964,11 @@
       coupon: 1000,
       gift: 300,
       effectiveBase: 9500,
+      createdAt: nowText(),
       status: "calculated",
       ruleVersion: "2026-07-v1",
     });
-    addAudit(actorName(), "生成业绩", `${ledger.customerId} 充值 10000，扣除退款 500，有效基数 9500`);
+    addAudit(actorName(), "生成业绩", `${ledger.customerId} 充值 10000，扣除退款 500，返点基数 9500；优惠券和赠送额度参与返点`);
   }
 
   function generateSettlement() {
@@ -2907,7 +3034,7 @@
     }
     submitDisputePayload({
       settlementId: target.id,
-      reason: "客户有效基数需复核，申请补充返点。",
+      reason: "客户返点基数需复核，申请补充返点。",
       expectedAdjustment: "30",
       evidenceNote: "测试流程自动提交",
     });
