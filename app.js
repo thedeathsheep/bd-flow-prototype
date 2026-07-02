@@ -118,12 +118,12 @@
         workorders: [],
         rebateRules: [],
         models: [
-          { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
-          { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
-          { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
+          { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
+          { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
+          { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", billingType: "按次", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
         ],
         bdRelations: [
-          { id: "MXR-001", owner: "MXBD001", model: "Seedance 2.0", basis: "消耗模型积分返点", usageType: "视频生成", usageUnit: "秒", unitPriceSnapshot: 0.08, billableAmount: 14800, rate: 0.03, cycle: "自然月", settlementAccount: "BD 收款户A", usage: 185000, dayUsage: 1200, weekUsage: 12800, latestBill: "-", status: "active" },
+          { id: "MXR-001", owner: "MXBD001", model: "Seedance 2.0", basis: "模型消耗返点", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, billableAmount: 14800, rate: 0.03, cycle: "自然月", settlementAccount: "BD 收款户A", usage: 185000, dayUsage: 1200, weekUsage: 12800, latestBill: "-", status: "active" },
         ],
         bdBills: [],
         bdDisputes: [],
@@ -166,7 +166,7 @@
       },
       externalBD: {
         title: "模型BD规则说明",
-        markdown: "## 模型BD规则说明\n- 模型BD只查看关联模型、模型侧用量、返点账单和异议。\n- 用量类型、用量单位、实际定价和计费消耗金额由模型接口读取，单位可能是 tokens、次、秒、张等。\n- 返点口径固定为消耗模型积分返点，按计费消耗金额乘以返点比例计算。\n- BD账单由总后台按自然月生成，BD确认后进入打款。",
+        markdown: "## 模型BD规则说明\n- 模型BD只查看关联模型、模型侧用量、返点账单和异议。\n- 用量类型、计费类型、用量单位、实际单价和计费消耗金额由模型接口读取，单位可能是 tokens、次、秒、张等。\n- 返点口径固定为模型消耗返点，按计费消耗金额乘以返点比例计算。\n- BD账单由总后台按自然月生成，BD确认后进入打款。",
         updatedAt: now,
       },
     };
@@ -275,12 +275,13 @@
       if (account && !account.rebateRuleId) account.rebateRuleId = assignment.ruleId;
     });
     next.entities.models = next.entities.models || [
-      { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
-      { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
-      { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
+      { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
+      { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
+      { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", billingType: "按次", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
     ];
     next.entities.models = next.entities.models.map((model) => ({
       usageType: "模型消耗",
+      billingType: "按次",
       usageUnit: "次",
       unitPriceSnapshot: 0,
       demoUsage: 0,
@@ -293,7 +294,9 @@
       const normalized = {
         cycle: "自然月",
         settlementAccount: "BD 收款户A",
+        basis: modelBdRebateBasis(),
         usageType: snapshot.usageType,
+        billingType: snapshot.billingType,
         usageUnit: snapshot.usageUnit,
         unitPriceSnapshot: snapshot.unitPriceSnapshot,
         usage: snapshot.demoUsage,
@@ -302,16 +305,18 @@
         latestBill: "-",
         ...relation,
       };
+      normalized.basis = modelBdRebateBasis();
       normalized.billableAmount = modelBillableAmount(normalized);
       return normalized;
     });
     next.entities.bdBills = (next.entities.bdBills || []).map((bill) => {
       const relation = next.entities.bdRelations.find((item) => item.owner === bill.owner && item.model === bill.model);
-      const snapshot = relation || { model: bill.model, usage: bill.usage, usageType: bill.usageType, usageUnit: bill.usageUnit, unitPriceSnapshot: bill.unitPriceSnapshot, billableAmount: bill.billableAmount || bill.base };
+      const snapshot = relation || { model: bill.model, usage: bill.usage, usageType: bill.usageType, billingType: bill.billingType, usageUnit: bill.usageUnit, unitPriceSnapshot: bill.unitPriceSnapshot, billableAmount: bill.billableAmount || bill.base };
       const billableAmount = modelBillableAmount(snapshot);
       return {
         ...bill,
         usageType: bill.usageType || snapshot.usageType || "模型消耗",
+        billingType: bill.billingType || snapshot.billingType || "按次",
         usageUnit: bill.usageUnit || snapshot.usageUnit || "次",
         unitPriceSnapshot: Number(bill.unitPriceSnapshot ?? snapshot.unitPriceSnapshot ?? 0),
         usage: Number(bill.usage ?? snapshot.usage ?? 0),
@@ -540,6 +545,7 @@
     const model = models.find((item) => item.name === modelName || item.id === modelName) || {};
     return {
       usageType: model.usageType || "模型消耗",
+      billingType: model.billingType || "按次",
       usageUnit: model.usageUnit || "次",
       unitPriceSnapshot: Number(model.unitPriceSnapshot || 0),
       demoUsage: Number(model.demoUsage || 0),
@@ -1137,7 +1143,7 @@
       `);
     }
     if (modal.type === "createBdRelation") {
-      return modalShell("新建模型关联", "模型必须从已配置模型列表中选择；用量单位、实际定价和计费消耗金额从模型接口读取。", closeButton, `
+      return modalShell("新建模型关联", "模型必须从已配置模型列表中选择；计费类型、用量单位、实际单价和计费消耗金额从模型接口读取。", closeButton, `
         <form class="form-grid" data-form="createBdRelation">
           <div class="field"><label>模型BD账号</label><select name="owner">${state.entities.bdAccounts.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.id)} / ${escapeHtml(item.name)}</option>`).join("")}</select></div>
           <div class="field"><label>模型</label><select name="model">${state.entities.models.map((item) => `<option value="${escapeHtml(item.name)}">${escapeHtml(item.name)} / ${escapeHtml(item.provider)}</option>`).join("")}</select></div>
@@ -2072,8 +2078,9 @@
       { key: "name", label: "模型名称" },
       { key: "provider", label: "供应方" },
       { key: "usageType", label: "用量类型" },
+      { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
-      { key: "unitPriceSnapshot", label: "实际定价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
+      { key: "unitPriceSnapshot", label: "实际单价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
       { key: "status", label: "状态", type: "status" },
     ], state.entities.models);
   }
@@ -2084,11 +2091,12 @@
       { key: "owner", label: "BD账号" },
       { key: "model", label: "模型" },
       { key: "usageType", label: "用量类型" },
+      { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
       { key: "dayUsage", label: "日消耗", value: (row) => formatUsageQuantity(row.dayUsage, row.usageUnit) },
       { key: "weekUsage", label: "周消耗", value: (row) => formatUsageQuantity(row.weekUsage, row.usageUnit) },
       { key: "usage", label: "月消耗", value: (row) => formatUsageQuantity(row.usage, row.usageUnit) },
-      { key: "unitPriceSnapshot", label: "实际定价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
+      { key: "unitPriceSnapshot", label: "实际单价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
       { key: "billableAmount", label: "计费消耗金额", type: "money" },
       { key: "basis", label: "返点口径" },
       { key: "rate", label: "比例", type: "percent" },
@@ -2110,9 +2118,10 @@
       { key: "owner", label: "BD账号" },
       { key: "model", label: "关联模型" },
       { key: "usageType", label: "用量类型" },
+      { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
       { key: "usage", label: "账期用量", value: (row) => formatUsageQuantity(row.usage, row.usageUnit) },
-      { key: "unitPriceSnapshot", label: "实际定价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
+      { key: "unitPriceSnapshot", label: "实际单价", value: (row) => formatUnitPrice(row.unitPriceSnapshot, row.usageUnit) },
       { key: "billableAmount", label: "计费消耗金额", type: "money" },
       { key: "rate", label: "比例", type: "percent" },
       { key: "amount", label: "返点金额", type: "money" },
@@ -2311,7 +2320,7 @@
   }
 
   function modelBdRebateBasis() {
-    return "消耗模型积分返点";
+    return "模型消耗返点";
   }
 
   function rebateCycleOptions(selected = "自然月") {
@@ -3253,6 +3262,7 @@
       model,
       basis: modelBdRebateBasis(),
       usageType: snapshot.usageType,
+      billingType: snapshot.billingType,
       usageUnit: snapshot.usageUnit,
       unitPriceSnapshot: snapshot.unitPriceSnapshot,
       billableAmount: Math.round(snapshot.demoUsage * snapshot.unitPriceSnapshot * 100) / 100,
@@ -3641,6 +3651,7 @@
       periodStart: period.start,
       periodEnd: period.end,
       usageType: relation.usageType,
+      billingType: relation.billingType,
       usageUnit: relation.usageUnit,
       usage: relation.usage,
       unitPriceSnapshot: relation.unitPriceSnapshot,
