@@ -1113,9 +1113,13 @@
       const targets = activityTransferTargets();
       const user = currentUser();
       const isAdmin = user?.role === "admin";
+      const fixedTarget = modal.id ? targets.find((item) => item.id === modal.id) : null;
+      const targetField = fixedTarget
+        ? `<input type="hidden" name="target" value="${escapeHtml(fixedTarget.id)}" /><div class="field"><label>${isAdmin ? "调整对象" : "发放对象"}</label><input value="${escapeHtml(fixedTarget.label)}" readonly /></div>`
+        : `<div class="field"><label>${isAdmin ? "调整对象" : "发放对象"}</label><select name="target">${targets.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join("")}</select></div>`;
       return modalShell(isAdmin ? "调整渠道活动积分" : "发放活动积分", isAdmin ? "总后台可调整所有渠道账号；日常原则上只向招商下发初始额度。" : "额度按渠道层级流转：招商给运营，运营给商务，商务给客户。", closeButton, `
         <form class="form-grid" data-form="transferActivityPoints">
-          <div class="field"><label>发放对象</label><select name="target">${targets.map((item) => `<option value="${escapeHtml(item.id)}">${escapeHtml(item.label)}</option>`).join("")}</select></div>
+          ${targetField}
           <div class="field"><label>${isAdmin ? "调整积分" : "发放积分"}</label><input name="amount" placeholder="${isAdmin ? "可填正数增加，负数扣减" : "填写正整数"}" /></div>
           <div class="field full-span"><label>备注</label><input name="reason" placeholder="${isAdmin ? "如：月度活动额度配置" : "如：发放给下级活动使用"}" /></div>
           <div class="toolbar"><button class="btn primary" type="submit">提交</button></div>
@@ -1736,9 +1740,7 @@
       : state.entities.activityLogs.filter((item) => getScopeAccountIds(account).includes(item.from) || getScopeAccountIds(account).includes(item.to));
     const balance = isAdmin ? visiblePools.reduce((sum, item) => sum + Number(item.balance || 0), 0) : activityPointBalance(account?.id);
     return `
-      ${pageHeader(isAdmin ? "渠道活动积分池" : "活动积分", isAdmin ? "总后台可查看和调整所有渠道账号活动积分池；日常原则上只向招商下发初始额度。" : "活动积分按渠道层级向下发放，商务可发给自己的客户。", `
-        <button class="btn primary" data-action="openModal" data-modal="transferActivityPoints">${isAdmin ? "调整渠道额度" : "发放活动积分"}</button>
-      `)}
+      ${pageHeader(isAdmin ? "渠道活动积分池" : "活动积分", isAdmin ? "总后台可查看和调整所有渠道账号活动积分池；日常原则上只向招商下发初始额度。" : "活动积分按渠道层级向下发放，商务可发给自己的客户。")}
       <div class="grid cols-4">
         ${metric(isAdmin ? "渠道池总余额" : "我的活动积分余额", String(balance), isAdmin ? "全部渠道账号" : "可继续向下发放")}
         ${metric("发放记录", String(visibleLogs.length), "当前可见范围")}
@@ -1746,7 +1748,7 @@
         ${metric(isAdmin ? "下发原则" : "发放层级", isAdmin ? "优先招商" : "下一级", isAdmin ? "异常时可人工调整全渠道" : "按当前角色可见对象")}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>${isAdmin ? "渠道活动积分池" : "活动积分余额"}</h3><p>${isAdmin ? "展示所有招商、运营、商务账号余额；平台日常只向招商下发，必要时可人工调整任一渠道账号。" : "显示当前链路内活动积分余额。"}</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>${isAdmin ? "渠道活动积分池" : "活动积分余额"}</h3><p>${isAdmin ? "在对应账号行直接调整额度；平台日常只向招商下发，必要时可人工调整任一渠道账号。" : "在可发放对象行直接发放活动积分。"}</p></div>${featureBadges(true, true)}</div>
         ${renderActivityPoolTable(visiblePools)}
       </div>
       <div class="card">
@@ -1757,12 +1759,16 @@
   }
 
   function renderActivityPoolTable(rows) {
+    const user = currentUser();
+    const targetIds = new Set(activityTransferTargets().map((item) => item.id));
     return table([
       { key: "owner", label: "账号/对象" },
       { key: "role", label: "角色", value: (row) => roleName[row.role] || row.role },
       { key: "balance", label: "活动积分余额" },
       { key: "updatedAt", label: "更新时间" },
-    ], rows);
+    ], rows, (row) => targetIds.has(row.owner)
+      ? `<button class="btn" data-action="openModal" data-modal="transferActivityPoints" data-id="${escapeHtml(row.owner)}">${user?.role === "admin" ? "调整" : "发放"}</button>`
+      : "");
   }
 
   function renderActivityLogTable(rows) {
