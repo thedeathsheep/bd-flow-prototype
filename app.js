@@ -40,11 +40,14 @@
     pending_payment: "待打款",
     paid: "已打款",
     archived: "已归档",
+    pending_signature: "待在线签字",
+    signed: "已签署",
   };
 
   const navs = {
     admin: [
       ["accounts", "账号治理"],
+      ["signing", "招商签约"],
       ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
@@ -57,6 +60,7 @@
     ],
     business: [
       ["dashboard", "数据中心"],
+      ["signing", "在线签约"],
       ["performance", "返点流水"],
       ["bindings", "我的客户"],
       ["settlements", "结算查看"],
@@ -108,6 +112,9 @@
           { id: "MXBD001", name: "模型BD MXBD001", username: "mxbd123", password: "mxbd123", mustChangePassword: false, passwordUpdatedAt: now, status: "active", beneficiary: "模型BD主体A", payment: "BD 收款户A", contact: "13910001001", source: "现有账号", createdAt: now },
         ],
         accountApplications: [],
+        signatureAgreements: [
+          { id: "SIGN-1001", investor: "BD1001", investorName: "招商 BD1001", document: "招商合作协议线上版", template: "招商合作协议 V1.0", status: "pending_signature", initiatedAt: now, signedAt: "", initiator: "总后台", signUrl: "https://esign.storyaai.test/sign/SIGN-1001" },
+        ],
         invites: [],
         customers: [
           { id: "C9001", name: "客户 C9001", account: "customer_demo", company: "", contact: "", status: "unbound", ownerBusiness: "", source: "邀请链接", boundAt: "" },
@@ -228,6 +235,21 @@
       passwordUpdatedAt: account.passwordUpdatedAt || account.createdAt || nowText(),
       contact: account.contact || defaultPhoneForAccount(account.id),
     }));
+    next.entities.signatureAgreements = (next.entities.signatureAgreements || []).map((item, index) => {
+      const investor = next.entities.channelAccounts.find((account) => account.id === item.investor) || {};
+      return {
+        id: item.id || `SIGN-${1001 + index}`,
+        investor: item.investor || investor.id || "",
+        investorName: item.investorName || investor.name || item.investor || "",
+        document: item.document || "招商合作协议线上版",
+        template: item.template || "招商合作协议 V1.0",
+        status: item.status || "pending_signature",
+        initiatedAt: item.initiatedAt || nowText(),
+        signedAt: item.signedAt || "",
+        initiator: item.initiator || "总后台",
+        signUrl: item.signUrl || `https://esign.storyaai.test/sign/${item.id || `SIGN-${1001 + index}`}`,
+      };
+    });
     next.entities.invites = (next.entities.invites || [])
       .filter((item) => item.id !== "OLD-CODE-001")
       .map((item) => ({
@@ -547,9 +569,9 @@
 
   function statusBadge(status) {
     const label = statusName[status] || status || "-";
-    const type = ["active", "bound", "approved", "paid"].includes(status)
+    const type = ["active", "bound", "approved", "paid", "signed"].includes(status)
       ? "current"
-      : ["generated", "opened", "submitted", "pending_official_review", "pending_binding_review", "pending_admin_review"].includes(status)
+      : ["generated", "opened", "submitted", "pending_official_review", "pending_binding_review", "pending_admin_review", "pending_signature"].includes(status)
         ? "warn"
         : ["rejected", "disabled", "expired"].includes(status)
           ? "danger"
@@ -879,6 +901,7 @@
   function renderAdminSidebar(user, roleNav) {
     const channelMenu = [
       ["accounts", "账号治理"],
+      ["signing", "招商签约"],
       ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
@@ -935,6 +958,7 @@
   function renderMain(user) {
     const pages = {
       accounts: renderAdminAccounts,
+      signing: renderSignatureAgreements,
       ownership: renderAdminOwnership,
       performance: renderPerformance,
       settlements: renderSettlements,
@@ -1521,6 +1545,51 @@
       <div class="card">
         <div class="card-header"><div><h3>正式渠道账号</h3><p>账号通过上级审批后才可登录、获客、绑定客户、计佣和结算。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(channelAccounts)}
+      </div>
+    `;
+  }
+
+  function renderSignatureAgreements(user) {
+    const isAdmin = user.role === "admin";
+    const account = currentAccount();
+    const investorAccounts = state.entities.channelAccounts.filter((item) => item.role === "investor");
+    if (isAdmin) {
+      const statusRows = filterListRows("signing", investorAccounts.map((investor) => {
+        const latest = latestSignatureForInvestor(investor.id);
+        return {
+          id: investor.id,
+          name: investor.name,
+          contact: investor.contact,
+          beneficiary: investor.beneficiary,
+          agreementId: latest?.id || "-",
+          document: latest?.document || "招商合作协议线上版",
+          status: latest?.status || "未发起",
+          initiatedAt: latest?.initiatedAt || "-",
+          signedAt: latest?.signedAt || "-",
+        };
+      }), ["id", "name", "contact", "beneficiary", "agreementId", "document", "status", "initiatedAt", "signedAt"]);
+      const records = filterListRows("signingRecords", state.entities.signatureAgreements, ["id", "investor", "investorName", "document", "template", "status", "initiatedAt", "signedAt", "initiator"]);
+      return `
+        ${pageHeader("招商签约", "平台只管理与招商的在线签约；运营和商务不进入平台签约流程。")}
+        ${adminFilterBar(["签约对象：招商", "签署方式：在线签字", "协议范围：平台与招商", "下游合同：渠道自行处理"], `<button class="btn ghost" type="button">导出签约记录</button>`)}
+        ${renderListFilter("signing", "输入招商账号、名称、手机号、主体或签约状态", statusRows)}
+        <div class="card">
+          <div class="card-header"><div><h3>招商签约状态</h3><p>在招商账号行直接发起或重新发起在线签约。</p></div>${featureBadges(true, true)}</div>
+          ${renderInvestorSignatureStatusTable(statusRows)}
+        </div>
+        <div class="card">
+          <div class="card-header"><div><h3>签约记录</h3><p>查看招商协议发起、签署和时间记录。</p></div>${featureBadges(true, true)}</div>
+          ${renderSignatureRecordTable(records, user)}
+        </div>
+      `;
+    }
+    const rows = filterListRows("signing", state.entities.signatureAgreements.filter((item) => item.investor === account?.id), ["id", "document", "template", "status", "initiatedAt", "signedAt", "initiator"]);
+    return `
+      ${pageHeader("在线签约", "查看平台发起的招商协议，并完成在线签字。")}
+      ${renderListFilter("signing", "输入协议编号、文件名称、模板或状态", rows)}
+      <div class="card">
+        <div class="card-header"><div><h3>我的签约文件</h3><p>这里只展示当前招商账号与平台之间的协议。</p></div>${featureBadges(true, true)}</div>
+        ${renderSignatureRecordTable(rows, user)}
       </div>
     `;
   }
@@ -2409,6 +2478,42 @@
       : "");
   }
 
+  function renderInvestorSignatureStatusTable(rows) {
+    return table([
+      { key: "id", label: "招商账号" },
+      { key: "name", label: "名称" },
+      { key: "contact", label: "手机号" },
+      { key: "beneficiary", label: "签约主体" },
+      { key: "agreementId", label: "最近协议" },
+      { key: "document", label: "协议文件" },
+      { key: "status", label: "状态", type: "status" },
+      { key: "initiatedAt", label: "发起时间" },
+      { key: "signedAt", label: "签署时间" },
+    ], rows, (row) => {
+      if (row.status === "pending_signature") return "";
+      return `<button class="btn" data-action="initiateInvestorSignature" data-id="${escapeHtml(row.id)}">${row.status === "signed" ? "重新发起" : "发起签约"}</button>`;
+    });
+  }
+
+  function renderSignatureRecordTable(rows, user) {
+    return table([
+      { key: "id", label: "协议编号" },
+      { key: "investor", label: "招商账号" },
+      { key: "investorName", label: "招商名称" },
+      { key: "document", label: "协议文件" },
+      { key: "template", label: "协议模板" },
+      { key: "status", label: "状态", type: "status" },
+      { key: "initiatedAt", label: "发起时间" },
+      { key: "signedAt", label: "签署时间" },
+      { key: "initiator", label: "发起人" },
+    ], rows, (row) => {
+      if (user.role === "investor" && row.status === "pending_signature") {
+        return `<button class="btn success" data-action="signInvestorAgreement" data-id="${escapeHtml(row.id)}">在线签字</button>`;
+      }
+      return "";
+    });
+  }
+
   function renderChannelAccountsTable(rows = state.entities.channelAccounts) {
     return table([
       { key: "id", label: "账号" },
@@ -2980,6 +3085,8 @@
       runMainFlow,
       generateBdBill,
       payBdBill,
+      initiateInvestorSignature,
+      signInvestorAgreement,
     };
     if (actions[action]) {
       actions[action](id, dataset);
@@ -3951,6 +4058,61 @@
       row.status = "paid";
     });
     addAudit(actorName(), "登记 BD 打款", rows.map((row) => row.id).join("、") + " 已打款");
+  }
+
+  function latestSignatureForInvestor(investorId) {
+    return state.entities.signatureAgreements
+      .filter((item) => item.investor === investorId)
+      .sort((a, b) => String(b.initiatedAt || "").localeCompare(String(a.initiatedAt || "")))[0];
+  }
+
+  function initiateInvestorSignature(investorId) {
+    const user = currentUser();
+    if (user?.role !== "admin") {
+      addAudit(actorName(), "发起招商签约", "只有总后台可以发起平台招商协议");
+      return;
+    }
+    const investor = state.entities.channelAccounts.find((item) => item.id === investorId && item.role === "investor" && item.status === "active");
+    if (!investor) {
+      addAudit(actorName(), "发起招商签约", "请选择已启用的招商账号");
+      return;
+    }
+    const existingPending = state.entities.signatureAgreements.find((item) => item.investor === investorId && item.status === "pending_signature");
+    if (existingPending) {
+      addAudit(actorName(), "发起招商签约", `${investorId} 已有待签协议 ${existingPending.id}`);
+      return;
+    }
+    const id = "SIGN-" + String(1001 + state.entities.signatureAgreements.length);
+    state.entities.signatureAgreements.unshift({
+      id,
+      investor: investor.id,
+      investorName: investor.name,
+      document: "招商合作协议线上版",
+      template: "招商合作协议 V1.0",
+      status: "pending_signature",
+      initiatedAt: nowText(),
+      signedAt: "",
+      initiator: actorName(),
+      signUrl: `https://esign.storyaai.test/sign/${id}`,
+    });
+    addAudit(actorName(), "发起招商签约", `${investor.id} 已生成在线签约文件 ${id}`);
+  }
+
+  function signInvestorAgreement(id) {
+    const user = currentUser();
+    const account = currentAccount();
+    const agreement = state.entities.signatureAgreements.find((item) => item.id === id);
+    if (!agreement || agreement.status !== "pending_signature") {
+      addAudit(actorName(), "在线签字", "没有可签署的协议");
+      return;
+    }
+    if (user?.role !== "investor" || agreement.investor !== account?.id) {
+      addAudit(actorName(), "在线签字", "只能签署当前招商账号的协议");
+      return;
+    }
+    agreement.status = "signed";
+    agreement.signedAt = nowText();
+    addAudit(actorName(), "在线签字", `${agreement.id} 已签署`);
   }
 
   function actorName() {
