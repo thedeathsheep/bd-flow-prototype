@@ -119,12 +119,12 @@
         workorders: [],
         rebateRules: [],
         models: [
-          { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
-          { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
-          { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", billingType: "按次", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
+          { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", modelCode: "doubao-seedance-2-0-260128", modelGroup: "video.seedacne2", provider: "seedance2.0", status: "active", usageType: "视频", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.99, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
+          { id: "MODEL-GPTIMAGE2", name: "Image 2 满血版", modelCode: "gpt-image-2", modelGroup: "image.chatgpt", provider: "openai", status: "active", usageType: "图片", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 1.88, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
+          { id: "MODEL-QWENPLUS", name: "Qwen Plus", modelCode: "qwen-plus", modelGroup: "text.qwen_plus", provider: "qwen", status: "active", usageType: "文本", billingType: "按百万 Token", usageUnit: "百万 Token", unitPriceSnapshot: 0.1, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
         ],
         bdRelations: [
-          { id: "MXR-001", owner: "MXBD001", model: "Seedance 2.0", basis: "模型消耗返点", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, billableAmount: 14800, rate: 0.03, cycle: "自然月", settlementAccount: "BD 收款户A", usage: 185000, dayUsage: 1200, weekUsage: 12800, latestBill: "-", status: "active" },
+          { id: "MXR-001", owner: "MXBD001", model: "Seedance 2.0", modelGroup: "video.seedacne2", provider: "seedance2.0", basis: "模型消耗返点", usageType: "视频", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.99, billableAmount: 183150, rate: 0.03, cycle: "自然月", settlementAccount: "BD 收款户A", usage: 185000, dayUsage: 1200, weekUsage: 12800, latestBill: "-", status: "active" },
         ],
         bdBills: [],
         activityPools: [
@@ -253,11 +253,19 @@
       contact: "",
       ...item,
     }));
-    next.entities.transactions = (next.entities.transactions || []).map((item) => ({
+    next.entities.transactions = (next.entities.transactions || []).map((item, index) => {
+      const model = channelTransactionModel(index, next.entities.models || defaultModelCatalog());
+      return {
       createdAt: item.createdAt || nowText(),
       effectiveBase: item.effectiveBase ?? rebateBaseForTransaction(item, "充值"),
+      modelName: item.modelName || item.model || item.modelUsed || model.name,
+      modelGroup: item.modelGroup || model.modelGroup,
+      provider: item.provider || item.modelProvider || model.provider,
+      billingType: item.billingType || model.billingType,
+      usageUnit: item.usageUnit || model.usageUnit,
       ...item,
-    }));
+      };
+    });
     const existingPools = next.entities.activityPools || [];
     const poolByOwner = new Map(existingPools.map((item) => [item.owner, item]));
     next.entities.activityPools = next.entities.channelAccounts
@@ -302,21 +310,24 @@
       const account = next.entities.channelAccounts.find((item) => item.id === assignment.accountId);
       if (account && !account.rebateRuleId) account.rebateRuleId = assignment.ruleId;
     });
-    next.entities.models = next.entities.models || [
-      { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", provider: "火山", status: "active", usageType: "视频生成", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.08, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
-      { id: "MODEL-HAPPYHORSE", name: "happyhorse", provider: "塑梦", status: "active", usageType: "图片生成", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 0.12, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
-      { id: "MODEL-KLING", name: "Kling 2.1", provider: "快手", status: "active", usageType: "视频任务", billingType: "按次", usageUnit: "次", unitPriceSnapshot: 0.36, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
-    ];
-    next.entities.models = next.entities.models.map((model) => ({
-      usageType: "模型消耗",
-      billingType: "按次",
-      usageUnit: "次",
-      unitPriceSnapshot: 0,
-      demoUsage: 0,
-      demoDayUsage: 0,
-      demoWeekUsage: 0,
-      ...model,
-    }));
+    next.entities.models = next.entities.models || defaultModelCatalog();
+    next.entities.models = next.entities.models.map((model) => {
+      const defaults = defaultModelCatalog().find((item) => item.id === model.id || item.name === model.name) || {};
+      return {
+        usageType: "模型消耗",
+        billingType: "按次",
+        usageUnit: "次",
+        unitPriceSnapshot: 0,
+        demoUsage: 0,
+        demoDayUsage: 0,
+        demoWeekUsage: 0,
+        ...defaults,
+        ...model,
+        modelCode: model.modelCode || defaults.modelCode || model.code || model.name,
+        modelGroup: model.modelGroup || model.group || model.capability || defaults.modelGroup || "-",
+        provider: normalizeProviderCode(model.provider || defaults.provider, model.name),
+      };
+    });
     next.entities.bdRelations = (next.entities.bdRelations || []).map((relation) => {
       const snapshot = modelUsageDefaults(relation.model, next.entities.models);
       const normalized = {
@@ -326,6 +337,8 @@
         usageType: snapshot.usageType,
         billingType: snapshot.billingType,
         usageUnit: snapshot.usageUnit,
+        provider: snapshot.provider,
+        modelGroup: snapshot.modelGroup,
         unitPriceSnapshot: snapshot.unitPriceSnapshot,
         usage: snapshot.demoUsage,
         dayUsage: snapshot.demoDayUsage,
@@ -339,13 +352,15 @@
     });
     next.entities.bdBills = (next.entities.bdBills || []).map((bill) => {
       const relation = next.entities.bdRelations.find((item) => item.owner === bill.owner && item.model === bill.model);
-      const snapshot = relation || { model: bill.model, usage: bill.usage, usageType: bill.usageType, billingType: bill.billingType, usageUnit: bill.usageUnit, unitPriceSnapshot: bill.unitPriceSnapshot, billableAmount: bill.billableAmount || bill.base };
+      const snapshot = relation || { model: bill.model, provider: bill.provider, modelGroup: bill.modelGroup, usage: bill.usage, usageType: bill.usageType, billingType: bill.billingType, usageUnit: bill.usageUnit, unitPriceSnapshot: bill.unitPriceSnapshot, billableAmount: bill.billableAmount || bill.base };
       const billableAmount = modelBillableAmount(snapshot);
       return {
         ...bill,
         usageType: bill.usageType || snapshot.usageType || "模型消耗",
         billingType: bill.billingType || snapshot.billingType || "按次",
         usageUnit: bill.usageUnit || snapshot.usageUnit || "次",
+        provider: bill.provider || snapshot.provider || "未配置",
+        modelGroup: bill.modelGroup || snapshot.modelGroup || "-",
         unitPriceSnapshot: Number(bill.unitPriceSnapshot ?? snapshot.unitPriceSnapshot ?? 0),
         usage: Number(bill.usage ?? snapshot.usage ?? 0),
         billableAmount,
@@ -563,12 +578,43 @@
     return `${money(value)} / ${unit || "单位"}`;
   }
 
+  function defaultModelCatalog() {
+    return [
+      { id: "MODEL-SEEDANCE20", name: "Seedance 2.0", modelCode: "doubao-seedance-2-0-260128", modelGroup: "video.seedacne2", provider: "seedance2.0", status: "active", usageType: "视频", billingType: "按秒", usageUnit: "秒", unitPriceSnapshot: 0.99, demoUsage: 185000, demoDayUsage: 1200, demoWeekUsage: 12800 },
+      { id: "MODEL-GPTIMAGE2", name: "Image 2 满血版", modelCode: "gpt-image-2", modelGroup: "image.chatgpt", provider: "openai", status: "active", usageType: "图片", billingType: "按张", usageUnit: "张", unitPriceSnapshot: 1.88, demoUsage: 42000, demoDayUsage: 360, demoWeekUsage: 3200 },
+      { id: "MODEL-QWENPLUS", name: "Qwen Plus", modelCode: "qwen-plus", modelGroup: "text.qwen_plus", provider: "qwen", status: "active", usageType: "文本", billingType: "按百万 Token", usageUnit: "百万 Token", unitPriceSnapshot: 0.1, demoUsage: 9800, demoDayUsage: 88, demoWeekUsage: 760 },
+    ];
+  }
+
+  function channelTransactionModel(index = 0, models = defaultModelCatalog()) {
+    const sourceModels = models && models.length ? models : defaultModelCatalog();
+    const model = sourceModels[index % sourceModels.length] || {};
+    return {
+      name: model.name || "未配置模型",
+      provider: normalizeProviderCode(model.provider, model.name),
+      modelGroup: model.modelGroup || model.group || "-",
+      billingType: model.billingType || "按次",
+      usageUnit: model.usageUnit || "次",
+    };
+  }
+
+  function normalizeProviderCode(provider, modelName = "") {
+    const value = String(provider || "").trim();
+    const name = String(modelName || "").toLowerCase();
+    if (value === "火山" || name.includes("seedance") || name.includes("sandance")) return "seedance2.0";
+    if (value === "塑梦" || name.includes("happyhorse")) return "bailian";
+    if (value === "快手" || name.includes("kling")) return "kuaishou";
+    return value || "未配置";
+  }
+
   function modelUsageDefaults(modelName, models = []) {
     const model = models.find((item) => item.name === modelName || item.id === modelName) || {};
     return {
       usageType: model.usageType || "模型消耗",
       billingType: model.billingType || "按次",
       usageUnit: model.usageUnit || "次",
+      provider: normalizeProviderCode(model.provider, model.name),
+      modelGroup: model.modelGroup || model.group || "-",
       unitPriceSnapshot: Number(model.unitPriceSnapshot || 0),
       demoUsage: Number(model.demoUsage || 0),
       demoDayUsage: Number(model.demoDayUsage || 0),
@@ -1231,10 +1277,10 @@
     const transactions = visibleTransactions(user);
     const settlementRows = visibleSettlements(user);
     const summary = channelDashboardSummary(user, transactions, settlementRows);
-    const interfaceRows = interfaceConsumptionRows(user, transactions);
+    const modelProviderRows = modelProviderConsumptionRows(user, transactions);
     const scopeRows = scopeConsumptionRows(user, transactions);
     return `
-      ${pageHeader(`${roleName[user.role]}数据中心`, "按当前账号的团队链路展示消耗、接口分布、历史累计和今日实时增量。", `
+      ${pageHeader(`${roleName[user.role]}数据中心`, "按当前账号的团队链路展示消耗、模型-provider分布、历史累计和今日实时增量。", `
         <button class="btn" data-page="performance">查看返点流水</button>
         ${user.role === "business" ? `<button class="btn primary" data-page="bindings">查看我的客户</button>` : ""}
       `)}
@@ -1262,8 +1308,8 @@
         ${renderDailyRealtimeRows(summary.todayRows, user)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>接口消耗分布</h3><p>按客户实际使用的接口/模型能力展示消耗金额。</p></div>${featureBadges(true, true)}</div>
-        ${renderInterfaceConsumptionTable(interfaceRows)}
+        <div class="card-header"><div><h3>模型-provider 消耗分布</h3><p>按客户实际使用的模型名称和 provider 聚合消耗金额。</p></div>${featureBadges(true, true)}</div>
+        ${renderModelProviderConsumptionTable(modelProviderRows)}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>下游消耗汇总</h3><p>招商看运营/商务汇总，运营看商务和客户，商务看客户。</p></div>${featureBadges(true, true)}</div>
@@ -1855,7 +1901,7 @@
         ${renderChannelAccountsTable(businesses)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>商务数据汇总</h3><p>只展示商务消耗和接口分布，不展示客户账号、客户ID或联系人。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>商务数据汇总</h3><p>只展示商务消耗和模型-provider分布，不展示客户账号、客户ID或联系人。</p></div>${featureBadges(true, true)}</div>
         ${summaryRows}
       </div>
       <div class="card">
@@ -2108,16 +2154,22 @@
     ], rows);
   }
 
-  function interfaceConsumptionRows(user, transactions = visibleTransactions(user)) {
+  function modelProviderConsumptionRows(user, transactions = visibleTransactions(user)) {
     const groups = new Map();
     transactions.forEach((tx, index) => {
-      const interfaceName = tx.interfaceName || ["视频生成接口", "图片生成接口", "脚本处理接口"][index % 3];
-      const current = groups.get(interfaceName) || { interfaceName, consume: 0, recharge: 0, refund: 0, count: 0 };
+      const fallback = channelTransactionModel(index, state.entities.models);
+      const modelName = tx.modelName || tx.model || tx.modelUsed || fallback.name;
+      const provider = tx.provider || tx.modelProvider || fallback.provider;
+      const modelGroup = tx.modelGroup || fallback.modelGroup;
+      const billingType = tx.billingType || fallback.billingType;
+      const usageUnit = tx.usageUnit || fallback.usageUnit;
+      const modelProvider = `${modelName} / ${provider}`;
+      const current = groups.get(modelProvider) || { modelProvider, modelName, provider, modelGroup, billingType, usageUnit, consume: 0, recharge: 0, refund: 0, count: 0 };
       current.consume += Number(tx.consume || 0);
       current.recharge += Number(tx.recharge || 0);
       current.refund += Number(tx.refund || 0);
       current.count += 1;
-      groups.set(interfaceName, current);
+      groups.set(modelProvider, current);
     });
     return [...groups.values()].map((row) => ({
       ...row,
@@ -2149,9 +2201,12 @@
     }));
   }
 
-  function renderInterfaceConsumptionTable(rows) {
+  function renderModelProviderConsumptionTable(rows) {
     return table([
-      { key: "interfaceName", label: "接口/能力" },
+      { key: "modelProvider", label: "模型-provider" },
+      { key: "modelGroup", label: "模型组" },
+      { key: "billingType", label: "计费类型" },
+      { key: "usageUnit", label: "用量单位" },
       { key: "consume", label: "消耗金额", type: "money" },
       { key: "refund", label: "退款扣减", type: "money" },
       { key: "netConsume", label: "净消耗", type: "money" },
@@ -2175,13 +2230,13 @@
       const txs = state.entities.transactions.filter((tx) => tx.business === businessId);
       const consume = roundMoney(txs.reduce((sum, tx) => sum + Number(tx.consume || 0), 0));
       const refund = roundMoney(txs.reduce((sum, tx) => sum + Number(tx.refund || 0), 0));
-      const topInterface = interfaceConsumptionRows(currentUser(), txs).sort((a, b) => b.netConsume - a.netConsume)[0]?.interfaceName || "-";
+      const topModelProvider = modelProviderConsumptionRows(currentUser(), txs).sort((a, b) => b.netConsume - a.netConsume)[0]?.modelProvider || "-";
       return {
         business: businessId,
         consume,
         refund,
         netConsume: Math.max(0, roundMoney(consume - refund)),
-        topInterface,
+        topModelProvider,
         count: txs.length,
       };
     });
@@ -2190,7 +2245,7 @@
       { key: "consume", label: "消耗金额", type: "money" },
       { key: "refund", label: "退款扣减", type: "money" },
       { key: "netConsume", label: "净消耗", type: "money" },
-      { key: "topInterface", label: "主要接口" },
+      { key: "topModelProvider", label: "主要模型-provider" },
       { key: "count", label: "流水数" },
     ], rows);
   }
@@ -2280,6 +2335,8 @@
       { key: "id", label: "流水" },
       { key: "customerId", label: "客户" },
       { key: "downstream", label: "下游来源", value: (row) => downstreamPath(row, currentUser()) },
+      { key: "modelProvider", label: "模型-provider", value: (row) => `${row.modelName || row.model || row.modelUsed || "-"} / ${row.provider || row.modelProvider || "-"}` },
+      { key: "modelGroup", label: "模型组" },
       { key: "investor", label: "招商" },
       { key: "operator", label: "运营" },
       { key: "business", label: "商务" },
@@ -2395,7 +2452,8 @@
     return table([
       { key: "id", label: "模型ID" },
       { key: "name", label: "模型名称" },
-      { key: "provider", label: "供应方" },
+      { key: "modelGroup", label: "模型组" },
+      { key: "provider", label: "provider" },
       { key: "usageType", label: "用量类型" },
       { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
@@ -2409,6 +2467,8 @@
       { key: "id", label: "关联" },
       { key: "owner", label: "BD账号" },
       { key: "model", label: "模型" },
+      { key: "modelGroup", label: "模型组" },
+      { key: "provider", label: "provider" },
       { key: "usageType", label: "用量类型" },
       { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
@@ -2436,6 +2496,8 @@
       { key: "periodEnd", label: "账期结束" },
       { key: "owner", label: "BD账号" },
       { key: "model", label: "关联模型" },
+      { key: "modelGroup", label: "模型组" },
+      { key: "provider", label: "provider" },
       { key: "usageType", label: "用量类型" },
       { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
@@ -3195,6 +3257,7 @@
       return;
     }
     const ledger = state.entities.ownershipLedger[0];
+    const model = channelTransactionModel(0, state.entities.models);
     state.entities.transactions.push({
       id: "TX-202607-001",
       customerId: ledger.customerId,
@@ -3202,6 +3265,11 @@
       operator: ledger.operator,
       business: ledger.business,
       downstream: `${ledger.operator} / ${ledger.business}`,
+      modelName: model.name,
+      provider: model.provider,
+      modelGroup: model.modelGroup,
+      billingType: model.billingType,
+      usageUnit: model.usageUnit,
       recharge: 10000,
       consume: 6000,
       refund: 500,
@@ -3402,6 +3470,8 @@
       id,
       owner,
       model,
+      provider: snapshot.provider,
+      modelGroup: snapshot.modelGroup,
       basis: modelBdRebateBasis(),
       usageType: snapshot.usageType,
       billingType: snapshot.billingType,
@@ -3848,6 +3918,8 @@
       id: billId,
       owner: relation.owner,
       model: relation.model,
+      provider: relation.provider,
+      modelGroup: relation.modelGroup,
       period: period.label,
       periodStart: period.start,
       periodEnd: period.end,
