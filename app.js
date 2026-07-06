@@ -47,7 +47,6 @@
   const navs = {
     admin: [
       ["accounts", "账号治理"],
-      ["signing", "招商签约"],
       ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
@@ -78,7 +77,6 @@
     ],
     investor: [
       ["dashboard", "数据中心"],
-      ["signing", "在线签约"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
       ["settlements", "结算查看"],
@@ -901,7 +899,6 @@
   function renderAdminSidebar(user, roleNav) {
     const channelMenu = [
       ["accounts", "账号治理"],
-      ["signing", "招商签约"],
       ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
@@ -958,7 +955,6 @@
   function renderMain(user) {
     const pages = {
       accounts: renderAdminAccounts,
-      signing: renderSignatureAgreements,
       ownership: renderAdminOwnership,
       performance: renderPerformance,
       settlements: renderSettlements,
@@ -1529,9 +1525,11 @@
   function renderAdminAccounts() {
     const rawApplications = state.entities.accountApplications;
     const rawAccounts = state.entities.channelAccounts;
-    const filterRows = rawApplications.concat(rawAccounts);
+    const rawSignatureRows = investorSignatureStatusRows();
+    const filterRows = rawApplications.concat(rawAccounts, rawSignatureRows);
     const accountApplications = filterListRows("adminAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "username", "status", "source"]);
     const channelAccounts = filterListRows("adminAccounts", rawAccounts, ["id", "role", "name", "parent", "beneficiary", "contact", "username", "status", "source"]);
+    const signatureRows = filterListRows("adminAccounts", rawSignatureRows, ["id", "name", "contact", "beneficiary", "agreementId", "document", "status", "initiatedAt", "signedAt"]);
     return `
       ${pageHeader("账号治理", "管理招商、运营、商务三层渠道账号；默认密码为 password，首次登录必须修改。", `
         <button class="btn primary" data-action="openModal" data-modal="createChannelAccount">新增渠道账号</button>
@@ -1546,52 +1544,29 @@
         <div class="card-header"><div><h3>正式渠道账号</h3><p>账号通过上级审批后才可登录、获客、绑定客户、计佣和结算。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(channelAccounts)}
       </div>
+      <div class="card">
+        <div class="card-header"><div><h3>招商签约状态</h3><p>平台只管理与招商的在线签约；在招商账号行直接发起或重新发起。</p></div>${featureBadges(true, true)}</div>
+        ${renderInvestorSignatureStatusTable(signatureRows)}
+      </div>
     `;
   }
 
-  function renderSignatureAgreements(user) {
-    const isAdmin = user.role === "admin";
-    const account = currentAccount();
+  function investorSignatureStatusRows() {
     const investorAccounts = state.entities.channelAccounts.filter((item) => item.role === "investor");
-    if (isAdmin) {
-      const statusRows = filterListRows("signing", investorAccounts.map((investor) => {
-        const latest = latestSignatureForInvestor(investor.id);
-        return {
-          id: investor.id,
-          name: investor.name,
-          contact: investor.contact,
-          beneficiary: investor.beneficiary,
-          agreementId: latest?.id || "-",
-          document: latest?.document || "招商合作协议线上版",
-          status: latest?.status || "未发起",
-          initiatedAt: latest?.initiatedAt || "-",
-          signedAt: latest?.signedAt || "-",
-        };
-      }), ["id", "name", "contact", "beneficiary", "agreementId", "document", "status", "initiatedAt", "signedAt"]);
-      const records = filterListRows("signingRecords", state.entities.signatureAgreements, ["id", "investor", "investorName", "document", "template", "status", "initiatedAt", "signedAt", "initiator"]);
-      return `
-        ${pageHeader("招商签约", "平台只管理与招商的在线签约；运营和商务不进入平台签约流程。")}
-        ${adminFilterBar(["签约对象：招商", "签署方式：在线签字", "协议范围：平台与招商", "下游合同：渠道自行处理"], `<button class="btn ghost" type="button">导出签约记录</button>`)}
-        ${renderListFilter("signing", "输入招商账号、名称、手机号、主体或签约状态", statusRows)}
-        <div class="card">
-          <div class="card-header"><div><h3>招商签约状态</h3><p>在招商账号行直接发起或重新发起在线签约。</p></div>${featureBadges(true, true)}</div>
-          ${renderInvestorSignatureStatusTable(statusRows)}
-        </div>
-        <div class="card">
-          <div class="card-header"><div><h3>签约记录</h3><p>查看招商协议发起、签署和时间记录。</p></div>${featureBadges(true, true)}</div>
-          ${renderSignatureRecordTable(records, user)}
-        </div>
-      `;
-    }
-    const rows = filterListRows("signing", state.entities.signatureAgreements.filter((item) => item.investor === account?.id), ["id", "document", "template", "status", "initiatedAt", "signedAt", "initiator"]);
-    return `
-      ${pageHeader("在线签约", "查看平台发起的招商协议，并完成在线签字。")}
-      ${renderListFilter("signing", "输入协议编号、文件名称、模板或状态", rows)}
-      <div class="card">
-        <div class="card-header"><div><h3>我的签约文件</h3><p>这里只展示当前招商账号与平台之间的协议。</p></div>${featureBadges(true, true)}</div>
-        ${renderSignatureRecordTable(rows, user)}
-      </div>
-    `;
+    return investorAccounts.map((investor) => {
+      const latest = latestSignatureForInvestor(investor.id);
+      return {
+        id: investor.id,
+        name: investor.name,
+        contact: investor.contact,
+        beneficiary: investor.beneficiary,
+        agreementId: latest?.id || "-",
+        document: latest?.document || "招商合作协议线上版",
+        status: latest?.status || "未发起",
+        initiatedAt: latest?.initiatedAt || "-",
+        signedAt: latest?.signedAt || "-",
+      };
+    });
   }
 
   function renderAdminOwnership() {
@@ -1915,6 +1890,7 @@
           ${Object.entries(info).map(([key, value]) => `<div class="card"><strong>${escapeHtml(key)}</strong><p>${escapeHtml(value)}</p></div>`).join("")}
         </div>
       </div>
+      ${user.role === "investor" ? renderInvestorProfileSignature(user) : ""}
       <div class="card">
         <div class="card-header"><div><h3>修改登录密码</h3><p>修改后下次登录使用新密码，管理员重置会覆盖当前密码。</p></div></div>
         <form class="form-grid" data-form="changeOwnPassword">
@@ -1923,6 +1899,19 @@
           <div class="field"><label>确认新密码</label><input name="confirmPassword" type="password" /></div>
           <div class="toolbar"><button class="btn primary" type="submit">修改密码</button></div>
         </form>
+      </div>
+    `;
+  }
+
+  function renderInvestorProfileSignature(user) {
+    const account = currentAccount();
+    const rawRows = state.entities.signatureAgreements.filter((item) => item.investor === account?.id);
+    const rows = filterListRows("profileSigning", rawRows, ["id", "document", "template", "status", "initiatedAt", "signedAt", "initiator"]);
+    return `
+      <div class="card">
+        <div class="card-header"><div><h3>平台招商协议</h3><p>当前招商账号与平台之间的在线签约文件。</p></div>${featureBadges(true, true)}</div>
+        ${renderListFilter("profileSigning", "输入协议编号、文件名称、模板或状态", rawRows)}
+        ${renderSignatureRecordTable(rows, user)}
       </div>
     `;
   }
