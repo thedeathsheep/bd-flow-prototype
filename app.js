@@ -28,7 +28,6 @@
     opened: "已打开",
     submitted: "已提交",
     used: "已使用",
-    stopped: "已停用",
     expired: "已失效",
     pending_binding_review: "待客户归属审批",
     bound: "已绑定",
@@ -538,7 +537,7 @@
       ? "current"
       : ["generated", "opened", "submitted", "pending_official_review", "pending_binding_review", "pending_admin_review"].includes(status)
         ? "warn"
-        : ["rejected", "disabled", "stopped", "expired"].includes(status)
+        : ["rejected", "disabled", "expired"].includes(status)
           ? "danger"
           : "";
     return badge(label, type);
@@ -3026,16 +3025,6 @@
     addAudit(actorName(), "打开客户绑定页", `${invite.id} 已打开，等待客户填写资料`);
   }
 
-  function stopInviteLink(inviteId) {
-    const invite = state.entities.invites.find((item) => item.id === inviteId);
-    if (!invite) return;
-    if (!["generated", "opened"].includes(invite.status)) {
-      addAudit(actorName(), "停用邀请链接", `${invite.id} 当前状态不可停用`);
-      return;
-    }
-    invite.status = "stopped";
-    addAudit(actorName(), "停用邀请链接", `${invite.id} 已停用，客户不能再提交`);
-  }
 
   function submitCustomerBindingForm(formData) {
     submitCustomerBindingPayload({
