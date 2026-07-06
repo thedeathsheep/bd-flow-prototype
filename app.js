@@ -882,6 +882,7 @@
       ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
+      ["activityPoints", "渠道活动积分"],
       ["bdRelations", "BD 模型关联"],
       ["bdSettlement", "BD 结算"],
       ["audit", "审计日志"],
@@ -1735,7 +1736,7 @@
       : state.entities.activityLogs.filter((item) => getScopeAccountIds(account).includes(item.from) || getScopeAccountIds(account).includes(item.to));
     const balance = isAdmin ? visiblePools.reduce((sum, item) => sum + Number(item.balance || 0), 0) : activityPointBalance(account?.id);
     return `
-      ${pageHeader("活动积分", isAdmin ? "总后台只配置招商活动积分额度；后续由渠道上下级自行发放。" : "活动积分按渠道层级向下发放，商务可发给自己的客户。", `
+      ${pageHeader(isAdmin ? "渠道活动积分" : "活动积分", isAdmin ? "总后台只配置招商活动积分额度；后续由渠道上下级自行发放。" : "活动积分按渠道层级向下发放，商务可发给自己的客户。", `
         <button class="btn primary" data-action="openModal" data-modal="transferActivityPoints">${isAdmin ? "调整招商额度" : "发放活动积分"}</button>
       `)}
       <div class="grid cols-4">
