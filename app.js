@@ -1743,7 +1743,7 @@
         ${metric(isAdmin ? "渠道活动积分余额" : "我的活动积分余额", String(balance), isAdmin ? "全部招商/渠道余额" : "可继续向下发放")}
         ${metric("发放记录", String(visibleLogs.length), "当前可见范围")}
         ${metric("可发放对象", String(activityTransferTargets().length), "按当前角色")}
-        ${metric("审批", "无", "线下沟通处理")}
+        ${metric(isAdmin ? "控制范围" : "发放层级", isAdmin ? "招商账号" : "下一级", isAdmin ? "只调整招商额度" : "按当前角色可见对象")}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>活动积分余额</h3><p>${isAdmin ? "总后台只直接调整招商额度。" : "显示当前链路内活动积分余额。"}</p></div>${featureBadges(true, true)}</div>
