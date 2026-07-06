@@ -60,7 +60,6 @@
     ],
     business: [
       ["dashboard", "数据中心"],
-      ["signing", "在线签约"],
       ["performance", "返点流水"],
       ["bindings", "我的客户"],
       ["settlements", "结算查看"],
@@ -79,6 +78,7 @@
     ],
     investor: [
       ["dashboard", "数据中心"],
+      ["signing", "在线签约"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
       ["settlements", "结算查看"],
