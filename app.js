@@ -19,7 +19,7 @@
 
   const statusName = {
     draft: "草稿",
-    pending_official_review: "待官方终审",
+    pending_official_review: "待上游审批",
     pending_channel_review: "渠道审批中",
     active: "启用",
     disabled: "停用",
@@ -29,14 +29,14 @@
     submitted: "已提交",
     used: "已使用",
     expired: "已失效",
-    pending_binding_review: "待客户归属审批",
+    pending_binding_review: "待上游审批",
     bound: "已绑定",
     unbound: "未绑定",
     raw: "原始流水",
     calculated: "已计算返点基数",
     pending_admin_review: "待总后台审核",
     approved: "审核通过",
-    pending_bd_confirm: "待BD确认",
+    pending_bd_confirm: "待打款",
     pending_payment: "待打款",
     paid: "已打款",
     archived: "已归档",
@@ -45,7 +45,7 @@
   const navs = {
     admin: [
       ["accounts", "账号治理"],
-      ["workorders", "官方终审"],
+      ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
       ["activityPoints", "活动积分"],
@@ -59,7 +59,7 @@
       ["dashboard", "数据中心"],
       ["performance", "返点流水"],
       ["bindings", "我的客户"],
-      ["settlements", "结算确认"],
+      ["settlements", "结算查看"],
       ["activityPoints", "活动积分"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -68,7 +68,7 @@
       ["dashboard", "数据中心"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
-      ["settlements", "结算确认"],
+      ["settlements", "结算查看"],
       ["activityPoints", "活动积分"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -77,7 +77,7 @@
       ["dashboard", "数据中心"],
       ["performance", "返点流水"],
       ["childAccounts", "我的团队"],
-      ["settlements", "结算确认"],
+      ["settlements", "结算查看"],
       ["activityPoints", "活动积分"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -162,22 +162,22 @@
     return {
       investor: {
         title: "招商规则说明",
-        markdown: "## 招商规则说明\n- 招商可查看自己的运营、运营的商务、商务客户和链路内业绩。\n- 招商不直接绑定客户，客户归属必须由商务邀请链接进入并通过总后台审批。\n- 结算按已配置返点规则和自然月账单流转。",
+        markdown: "## 招商规则说明\n- 招商可查看自己的运营、运营的商务、商务客户和链路内业绩。\n- 招商不直接绑定客户，客户归属必须由商务邀请链接进入并通过上游审批。\n- 结算按已配置返点规则和自然月账单流转，渠道侧不需要手动确认账单。",
         updatedAt: now,
       },
       operator: {
         title: "运营规则说明",
-        markdown: "## 运营规则说明\n- 运营可查看自己的商务、商务客户和链路内业绩。\n- 运营可提交商务资料，启用必须经过总后台官方终审。\n- 运营只查看自己对应的返点规则和结算单。",
+        markdown: "## 运营规则说明\n- 运营可查看自己的商务、商务客户和链路内业绩。\n- 运营可创建商务资料，资料通过上游审批后启用。\n- 运营只查看自己对应的返点规则和结算单，账单不需要手动确认。",
         updatedAt: now,
       },
       business: {
         title: "商务规则说明",
-        markdown: "## 商务规则说明\n- 商务通过客户邀约生成邀请链接，客户在独立页面提交绑定资料。\n- 客户归属审批通过前，不进入客户列表、不计业绩、不参与结算。\n- 商务可查看自己的客户、返点流水、返点规则和结算确认。",
+        markdown: "## 商务规则说明\n- 商务通过客户邀约生成邀请链接，客户在独立页面提交绑定资料。\n- 客户归属上游审批通过前，不进入客户列表、不计业绩、不参与结算。\n- 商务可查看自己的客户、返点流水、返点规则和结算进度，不需要手动确认账单。",
         updatedAt: now,
       },
       externalBD: {
         title: "模型BD规则说明",
-        markdown: "## 模型BD规则说明\n- 模型BD只查看关联模型、模型侧用量、返点账单和疑问。\n- 用量类型、计费类型、用量单位、模型结算单价和计费消耗金额由模型接口读取，单位可能是 tokens、次、秒、张等。\n- 单条计费消耗金额按计费用量乘以模型结算单价计算，按百万 Token 时先将 tokens 除以 1,000,000。\n- 返点口径固定为模型消耗返点，按计费消耗金额乘以返点比例计算。\n- BD账单由总后台按自然月生成，BD确认后进入打款。",
+        markdown: "## 模型BD规则说明\n- 模型BD只查看关联模型、模型侧用量、返点账单和规则说明。\n- 用量类型、计费类型、用量单位、模型结算单价和计费消耗金额由模型接口读取，单位可能是 tokens、次、秒、张等。\n- 单条计费消耗金额按计费用量乘以模型结算单价计算，按百万 Token 时先将 tokens 除以 1,000,000。\n- 返点口径固定为模型消耗返点，按计费消耗金额乘以返点比例计算。\n- BD账单由总后台按自然月生成后直接进入打款处理，BD侧只查看进度。",
         updatedAt: now,
       },
     };
@@ -366,8 +366,7 @@
         billableAmount,
         base: billableAmount,
         amount: Number(bill.amount && bill.billableAmount ? bill.amount : Math.round(billableAmount * Number(bill.rate || 0) * 100) / 100),
-        status: bill.status === "pending_payment" && !bill.bdConfirmedAt ? "pending_bd_confirm" : bill.status,
-        bdConfirmedAt: bill.bdConfirmedAt || "",
+        status: bill.status === "pending_bd_confirm" ? "pending_payment" : bill.status,
       };
     });
     const seededHelpArticles = seedHelpArticles(nowText());
@@ -779,7 +778,7 @@
             <h1>招商后台全流程</h1>
             <p>统一处理渠道账号、客户归属、业绩返点、结算审核与打款归档。</p>
             <div class="notice">
-              推荐先用商务生成邀请链接，再切到总后台审批，最后回商务确认结算。也可以直接点“跑通主流程”。
+              推荐先用商务生成邀请链接，客户提交后由上游审批；账单由总后台结算人处理，渠道侧只查看进度。也可以直接点“跑通主流程”。
             </div>
             <div class="account-grid">
               ${accounts.map((item) => `
@@ -880,7 +879,7 @@
   function renderAdminSidebar(user, roleNav) {
     const channelMenu = [
       ["accounts", "账号治理"],
-      ["workorders", "官方终审"],
+      ["workorders", "审批记录"],
       ["performance", "渠道返佣"],
       ["settlements", "渠道结算"],
       ["bdRelations", "BD 模型关联"],
@@ -1040,7 +1039,7 @@
       const role = modal.role || "business";
       const config = channelRoleConfig(role);
       const fixedParent = fixedParentForChannelDraft(role);
-      return modalShell(`创建${roleName[role]}资料`, "本级提交资料后进入总后台官方终审，通过后才启用账号。", closeButton, `
+      return modalShell(`创建${roleName[role]}资料`, "本级提交资料后进入上游审批，通过后才启用账号。", closeButton, `
         <form class="form-grid" data-form="createAccountDraftForm">
           <input type="hidden" name="role" value="${escapeHtml(role)}" />
           <input type="hidden" name="parent" value="${escapeHtml(fixedParent)}" />
@@ -1508,14 +1507,14 @@
       ${pageHeader("账号治理", "管理招商、运营、商务三层渠道账号；默认密码为 password，首次登录必须修改。", `
         <button class="btn primary" data-action="openModal" data-modal="createChannelAccount">新增渠道账号</button>
       `)}
-      ${adminFilterBar(["角色：全部", "状态：待官方终审/启用/驳回", "资料完整度：收款主体、手机号、上级关系", "风险：单账号单角色校验"], `<button class="btn ghost" type="button">导出账号清单</button>`)}
+      ${adminFilterBar(["角色：全部", "状态：待上游审批/启用/驳回", "资料完整度：收款主体、手机号、上级关系", "风险：单账号单角色校验"], `<button class="btn ghost" type="button">导出账号清单</button>`)}
       ${renderListFilter("adminAccounts", "输入账号ID、名称、手机号、上级、角色或状态", filterRows)}
       <div class="card">
-        <div class="card-header"><div><h3>待终审账号资料</h3><p>招商创建运营资料、运营创建商务资料后进入这里。</p></div>${featureBadges(false, true)}</div>
+        <div class="card-header"><div><h3>待审批账号资料</h3><p>招商创建运营资料、运营创建商务资料后进入上游审批；总后台查看全量记录。</p></div>${featureBadges(false, true)}</div>
         ${renderAccountApplications(accountApplications)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>正式渠道账号</h3><p>账号通过终审后才可登录、获客、绑定客户、计佣和结算。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>正式渠道账号</h3><p>账号通过上游审批后才可登录、获客、绑定客户、计佣和结算。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(channelAccounts)}
       </div>
     `;
@@ -1527,12 +1526,12 @@
     const applications = filterListRows("adminOwnership", rawApplications, ["id", "customerId", "customerName", "customerAccount", "customerCompany", "contact", "ownerBusiness", "sourceLink", "status", "reason", "rejectReason"]);
     const ledgerRows = filterListRows("adminOwnership", rawLedger, ["customerId", "investor", "operator", "business", "effectiveAt", "basis", "status"]);
     return `
-      ${pageHeader("客户归属审批", "客户绑定必须审批，审批通过后写入正式客户归属台账。", "")}
-      ${adminFilterBar(["审批状态：待审批", "客户：C9001/用户名/手机号", "来源：邀请链接", "冲突校验：历史归属/重复绑定", "处理人：总后台"], `<button class="btn ghost" type="button">查看冲突规则</button>`)}
+      ${pageHeader("客户归属记录", "客户绑定必须经过上游审批，审批通过后写入正式客户归属台账。", "")}
+      ${adminFilterBar(["审批状态：待审批", "客户：C9001/用户名/手机号", "来源：邀请链接", "冲突校验：历史归属/重复绑定", "处理人：上游账号"], `<button class="btn ghost" type="button">查看冲突规则</button>`)}
       ${renderListFilter("adminOwnership", "输入客户ID、客户名称、商务、链接或状态", rawApplications.concat(rawLedger))}
       <div class="card">
-        <div class="card-header"><div><h3>客户绑定申请</h3><p>总后台审批前不计佣；审批通过后生成客户归属台账。</p></div>${featureBadges(false, true)}</div>
-        ${renderBindingTable(applications, (row) => row.status === "pending_binding_review" ? `
+        <div class="card-header"><div><h3>客户绑定申请</h3><p>上游审批前不计佣；审批通过后生成客户归属台账。</p></div>${featureBadges(false, true)}</div>
+        ${renderBindingTable(applications, (row) => canApproveBinding(row) ? `
           <button class="btn success" data-action="approveBinding" data-id="${row.id}">通过</button>
           <button class="btn danger" data-action="rejectBinding" data-id="${row.id}">驳回</button>
         ` : "")}
@@ -1557,8 +1556,8 @@
       <div class="grid cols-4">
         ${metric("充值流水", money(transactions.reduce((sum, item) => sum + item.recharge, 0)), "原始账务")}
         ${metric("消费流水", money(transactions.reduce((sum, item) => sum + item.consume, 0)), "消费金额")}
-        ${metric("退款扣减", money(transactions.reduce((sum, item) => sum + item.refund, 0)), "从返点基数扣除")}
-        ${metric("返点基数", money(transactions.reduce((sum, item) => sum + rebateBaseForCurrentUser(item, user), 0)), "优惠券和赠送额度参与返点")}
+        ${metric("返点基数", money(transactions.reduce((sum, item) => sum + rebateBaseForCurrentUser(item, user), 0)), "按账号所选规则口径")}
+        ${metric("预计返点", money(projectedSettlementForTransactions(user, transactions)), "按已配置规则计算")}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>交易明细</h3><p>每笔流水保留客户、归属链路、返点基数和规则版本。</p></div>${featureBadges(true, true)}</div>
@@ -1607,19 +1606,19 @@
       const reviewedBindings = filterListRows("workorders", rawReviewedBindings, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "rejectReason"]);
       const workorders = filterListRows("workorders", rawWorkorders, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
       return `
-        ${pageHeader("官方终审", "账号资料和客户归属在这里分组处理，每个处理结果都写入业务对象。", "")}
-        ${adminFilterBar(["类型：账号终审/客户归属", "状态：待处理/已通过/已驳回", "处理人：总后台", "SLA：24 小时内"], `<button class="btn ghost" type="button">查看处理规则</button>`)}
+        ${pageHeader("审批记录", "账号资料和客户归属按上游审批流转，总后台在这里查看全量记录。", "")}
+        ${adminFilterBar(["类型：账号资料/客户归属", "状态：待处理/已通过/已驳回", "处理人：上游账号", "SLA：24 小时内"], `<button class="btn ghost" type="button">查看处理规则</button>`)}
         ${renderListFilter("workorders", "输入工单、申请单、客户、账号、业务对象或状态", filterRows)}
         <div class="card">
-          <div class="card-header"><div><h3>账号资料终审</h3><p>招商创建运营、运营创建商务后，在这里终审启用。</p></div>${featureBadges(false, true)}</div>
+          <div class="card-header"><div><h3>账号资料审批</h3><p>招商创建运营、运营创建商务后，由上游账号审批启用。</p></div>${featureBadges(false, true)}</div>
           ${renderAccountApplications(accountApplications)}
         </div>
         <div class="card">
-          <div class="card-header"><div><h3>客户归属审批</h3><p>客户提交资料后进入待审；通过前不计佣、不结算。</p></div>${featureBadges(false, true)}</div>
-          ${renderBindingTable(pendingBindings, (row) => `
+          <div class="card-header"><div><h3>客户归属审批</h3><p>客户提交资料后进入上游待审；通过前不计佣、不结算。</p></div>${featureBadges(false, true)}</div>
+          ${renderBindingTable(pendingBindings, (row) => canApproveBinding(row) ? `
             <button class="btn success" data-action="approveBinding" data-id="${row.id}">通过</button>
             <button class="btn danger" data-action="rejectBinding" data-id="${row.id}">驳回</button>
-          `)}
+          ` : "")}
         </div>
         <div class="card">
           <div class="card-header"><div><h3>已处理客户归属</h3><p>保留审批结论、来源链接和驳回原因，便于追溯。</p></div></div>
@@ -1634,7 +1633,7 @@
     const rawRows = visibleWorkorders(user);
     const rows = filterListRows("workorders", rawRows, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
     return `
-      ${pageHeader("官方终审", "承接账号资料终审、客户归属审批、补充材料和人工调整，不做泛化留言板。", "")}
+      ${pageHeader("审批记录", "查看账号资料和客户归属审批事项，不做泛化留言板。", "")}
       ${renderListFilter("workorders", "输入工单、标题、业务对象或状态", rawRows)}
       <div class="card">
         <div class="card-header"><div><h3>工单列表</h3><p>每个工单都必须有业务对象、状态、处理人和结果。</p></div>${featureBadges(true, true)}</div>
@@ -1688,10 +1687,10 @@
       ${pageHeader("BD 结算", "按自然月生成模型BD返点账单，并处理线下打款状态。", `
         <button class="btn primary" data-action="generateBdBill">生成上月自然月BD账单</button>
       `)}
-      ${adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待BD确认/待打款/已打款", "对象：模型BD", "来源：BD 模型关联"], "")}
+      ${adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待打款/已打款", "对象：模型BD", "来源：BD 模型关联"], "")}
       ${renderListFilter("bdSettlement", "输入BD账单、模型、BD账号、账期或状态", rawBills)}
       <div class="card">
-        <div class="card-header"><div><h3>BD 账单</h3><p>总后台生成账单，模型BD确认后进入打款。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>BD 账单</h3><p>总后台生成账单后直接进入打款处理，BD侧只查看进度。</p></div>${featureBadges(true, true)}</div>
         ${renderBdBillsTable(user, bills)}
       </div>
     `;
@@ -1861,17 +1860,17 @@
     const rows = filterListRows("childAccounts", rawRows, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
     const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     return `
-      ${pageHeader("我的团队", "渠道可填写团队成员资料，但启用必须经过总后台官方终审。", `
+      ${pageHeader("我的团队", "渠道可填写团队成员资料，但启用必须经过上游审批。", `
         ${user.role === "investor" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>` : ""}
         ${user.role === "operator" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>` : ""}
       `)}
       ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色、客户或状态", rawRows.concat(rawApplications))}
       <div class="card">
-        <div class="card-header"><div><h3>正式团队账号</h3><p>仅展示已启用账号；待审资料在总后台终审。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>正式团队账号</h3><p>仅展示已启用账号；待审资料由上游账号审批。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(rows)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
+        <div class="card-header"><div><h3>我提交的资料</h3><p>未通过上游审批前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
         ${renderAccountApplications(applications)}
       </div>
     `;
@@ -1893,7 +1892,7 @@
       `)}
       ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色或状态", rawOperators.concat(rawBusinesses, rawApplications))}
       <div class="card">
-        <div class="card-header"><div><h3>运营账号</h3><p>直属运营，通过官方终审后才启用。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>运营账号</h3><p>直属运营，通过招商审批后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(operators)}
       </div>
       <div class="card">
@@ -1905,7 +1904,7 @@
         ${summaryRows}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
+        <div class="card-header"><div><h3>待审批资料</h3><p>招商审核自己创建的运营资料；通过前不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
         ${renderAccountApplications(applications)}
       </div>
     `;
@@ -1915,6 +1914,9 @@
     const account = currentAccount();
     const rawBusinesses = state.entities.channelAccounts.filter((item) => item.parent === account?.id);
     const businesses = filterListRows("childAccounts", rawBusinesses, ["id", "name", "role", "parent", "beneficiary", "username", "contact", "status", "source"]);
+    const businessIds = rawBusinesses.map((business) => business.id);
+    const rawBindingApplications = state.entities.bindingApplications.filter((item) => businessIds.includes(item.ownerBusiness));
+    const bindingApplications = filterListRows("childAccounts", rawBindingApplications, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "reason"]);
     const rawCustomers = state.entities.customers.filter((item) => rawBusinesses.map((business) => business.id).includes(item.ownerBusiness));
     const customers = filterCustomers(filterListRows("childAccounts", rawCustomers, ["id", "name", "account", "company", "contact", "status", "ownerBusiness"]));
     const rawApplications = state.entities.accountApplications.filter((item) => item.createdBy === account?.id);
@@ -1923,9 +1925,9 @@
       ${pageHeader("我的团队", "运营可查看自己的商务，以及商务已审批通过的客户。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>
       `)}
-      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、客户、角色或状态", rawBusinesses.concat(rawCustomers, rawApplications))}
+      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、客户、角色或状态", rawBusinesses.concat(rawCustomers, rawBindingApplications, rawApplications))}
       <div class="card">
-        <div class="card-header"><div><h3>商务账号</h3><p>正式商务账号，通过官方终审后才启用。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>商务账号</h3><p>正式商务账号，通过运营审批后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(businesses)}
       </div>
       <div class="card">
@@ -1933,7 +1935,14 @@
         ${renderCustomerTable(filterCustomers(customers))}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>我提交的资料</h3><p>未通过官方终审前，不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
+        <div class="card-header"><div><h3>客户归属审批</h3><p>客户提交绑定资料后，由所属商务的上游运营审批。</p></div>${featureBadges(false, true)}</div>
+        ${renderBindingTable(bindingApplications, (row) => canApproveBinding(row) ? `
+          <button class="btn success" data-action="approveBinding" data-id="${row.id}">通过</button>
+          <button class="btn danger" data-action="rejectBinding" data-id="${row.id}">驳回</button>
+        ` : "")}
+      </div>
+      <div class="card">
+        <div class="card-header"><div><h3>待审批资料</h3><p>运营审核自己创建的商务资料；通过前不允许获客和计佣。</p></div>${featureBadges(false, true)}</div>
         ${renderAccountApplications(applications)}
       </div>
     `;
@@ -1992,7 +2001,7 @@
       : state.entities.bdBills;
     const bills = filterListRows("bdBills", rawBills, ["id", "periodStart", "periodEnd", "owner", "model", "usageType", "billingType", "usageUnit", "status"]);
     return `
-      ${pageHeader("BD账单", "模型BD查看自己的模型返点账单，确认后进入总后台打款。", "")}
+      ${pageHeader("BD账单", "模型BD查看自己的模型返点账单和打款进度，不需要手动确认。", "")}
       ${renderListFilter("bdBills", "输入BD账单、模型、账期或状态", rawBills)}
       <div class="card">${renderBdBillsTable(user, bills)}</div>
     `;
@@ -2149,7 +2158,6 @@
       { key: "downstream", label: "来源链路", value: (row) => downstreamPath(row, user) },
       { key: "recharge", label: "充值", type: "money" },
       { key: "consume", label: "消费", type: "money" },
-      { key: "refund", label: "退款扣减", type: "money" },
       { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, user), type: "money" },
     ], rows);
   }
@@ -2164,17 +2172,13 @@
       const billingType = tx.billingType || fallback.billingType;
       const usageUnit = tx.usageUnit || fallback.usageUnit;
       const modelProvider = `${modelName} / ${provider}`;
-      const current = groups.get(modelProvider) || { modelProvider, modelName, provider, modelGroup, billingType, usageUnit, consume: 0, recharge: 0, refund: 0, count: 0 };
+      const current = groups.get(modelProvider) || { modelProvider, modelName, provider, modelGroup, billingType, usageUnit, consume: 0, recharge: 0, count: 0 };
       current.consume += Number(tx.consume || 0);
       current.recharge += Number(tx.recharge || 0);
-      current.refund += Number(tx.refund || 0);
       current.count += 1;
       groups.set(modelProvider, current);
     });
-    return [...groups.values()].map((row) => ({
-      ...row,
-      netConsume: Math.max(0, roundMoney(row.consume - row.refund)),
-    }));
+    return [...groups.values()];
   }
 
   function scopeConsumptionRows(user, transactions = visibleTransactions(user)) {
@@ -2188,17 +2192,13 @@
     const groups = new Map();
     transactions.forEach((tx) => {
       const owner = groupKey(tx);
-      const current = groups.get(owner) || { owner, consume: 0, recharge: 0, refund: 0, count: 0 };
+      const current = groups.get(owner) || { owner, consume: 0, recharge: 0, count: 0 };
       current.consume += Number(tx.consume || 0);
       current.recharge += Number(tx.recharge || 0);
-      current.refund += Number(tx.refund || 0);
       current.count += 1;
       groups.set(owner, current);
     });
-    return [...groups.values()].map((row) => ({
-      ...row,
-      netConsume: Math.max(0, roundMoney(row.consume - row.refund)),
-    }));
+    return [...groups.values()];
   }
 
   function renderModelProviderConsumptionTable(rows) {
@@ -2208,8 +2208,6 @@
       { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
       { key: "consume", label: "消耗金额", type: "money" },
-      { key: "refund", label: "退款扣减", type: "money" },
-      { key: "netConsume", label: "净消耗", type: "money" },
       { key: "count", label: "流水数" },
     ], rows);
   }
@@ -2219,8 +2217,6 @@
     return table([
       { key: "owner", label },
       { key: "consume", label: "消耗金额", type: "money" },
-      { key: "refund", label: "退款扣减", type: "money" },
-      { key: "netConsume", label: "净消耗", type: "money" },
       { key: "count", label: "流水数" },
     ], rows);
   }
@@ -2229,13 +2225,10 @@
     const rows = businessIds.map((businessId) => {
       const txs = state.entities.transactions.filter((tx) => tx.business === businessId);
       const consume = roundMoney(txs.reduce((sum, tx) => sum + Number(tx.consume || 0), 0));
-      const refund = roundMoney(txs.reduce((sum, tx) => sum + Number(tx.refund || 0), 0));
-      const topModelProvider = modelProviderConsumptionRows(currentUser(), txs).sort((a, b) => b.netConsume - a.netConsume)[0]?.modelProvider || "-";
+      const topModelProvider = modelProviderConsumptionRows(currentUser(), txs).sort((a, b) => b.consume - a.consume)[0]?.modelProvider || "-";
       return {
         business: businessId,
         consume,
-        refund,
-        netConsume: Math.max(0, roundMoney(consume - refund)),
         topModelProvider,
         count: txs.length,
       };
@@ -2243,8 +2236,6 @@
     return table([
       { key: "business", label: "商务账号" },
       { key: "consume", label: "消耗金额", type: "money" },
-      { key: "refund", label: "退款扣减", type: "money" },
-      { key: "netConsume", label: "净消耗", type: "money" },
       { key: "topModelProvider", label: "主要模型-provider" },
       { key: "count", label: "流水数" },
     ], rows);
@@ -2342,9 +2333,6 @@
       { key: "business", label: "商务" },
       { key: "recharge", label: "充值", type: "money" },
       { key: "consume", label: "消费", type: "money" },
-      { key: "refund", label: "退款", type: "money" },
-      { key: "coupon", label: "优惠券", type: "money" },
-      { key: "gift", label: "赠送额度", type: "money" },
       { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, currentUser()), type: "money" },
       { key: "status", label: "状态", type: "status" },
     ], rows);
@@ -2409,8 +2397,8 @@
       { key: "createdBy", label: "创建人" },
       { key: "beneficiary", label: "受益主体" },
       { key: "status", label: "状态", type: "status" },
-    ], rows, (row) => currentUser()?.role === "admin" && row.status === "pending_official_review"
-      ? `<button class="btn success" data-action="approveAccount" data-id="${row.id}">终审通过</button><button class="btn danger" data-action="rejectAccount" data-id="${row.id}">驳回</button>`
+    ], rows, (row) => canApproveAccount(row)
+      ? `<button class="btn success" data-action="approveAccount" data-id="${row.id}">审批通过</button><button class="btn danger" data-action="rejectAccount" data-id="${row.id}">驳回</button>`
       : "");
   }
 
@@ -2512,9 +2500,6 @@
         if (row.status === "pending_payment") return `<button class="btn success" data-action="payBdBill" data-id="${row.id}">登记打款</button>`;
         return "";
       }
-      if (user.role === "externalBD" && row.status === "pending_bd_confirm") {
-        return `<button class="btn success" data-action="confirmBdBill" data-id="${row.id}">确认</button>`;
-      }
       return "";
     });
   }
@@ -2559,9 +2544,9 @@
     const progress = getFlowProgress();
     const steps = [
       ["invite", "商务生成邀请链接", "系统记录链接、归属商务和生成时组织链路。"],
-      ["binding", "客户提交绑定申请", "客户归属进入待官方审批，不计佣。"],
-      ["approval", "总后台审批归属", "通过后写入客户归属台账。"],
-      ["performance", "产生业绩并计算返点", "退款扣减返点基数，优惠券和赠送额度参与返点。"],
+      ["binding", "客户提交绑定申请", "客户归属进入待上游审批，不计佣。"],
+      ["approval", "上游审批归属", "通过后写入客户归属台账。"],
+      ["performance", "产生业绩并计算返点", "按已配置返佣规则计算本期返点。"],
       ["settlement", "生成结算单", "结算单直接进入结算人审核。"],
       ["confirm", "结算人审核", "审核通过后进入打款处理。"],
       ["pay", "总后台打款归档", "结算完成，历史可追溯。"],
@@ -2735,7 +2720,7 @@
 
   function rebateBaseForTransaction(tx, basis = "充值") {
     const rawAmount = basis === "消费" ? Number(tx.consume || 0) : Number(tx.recharge || 0);
-    return Math.max(0, rawAmount - Number(tx.refund || 0));
+    return Math.max(0, rawAmount);
   }
 
   function rebateBaseForCurrentUser(tx, user = currentUser()) {
@@ -2810,6 +2795,20 @@
     const account = currentAccount();
     const scope = getScopeAccountIds(account);
     return state.entities.workorders.filter((item) => scope.includes(item.owner) || scope.includes(item.target) || scope.includes(item.createdBy));
+  }
+
+  function canApproveAccount(row) {
+    if (!row || row.status !== "pending_official_review") return false;
+    const account = currentAccount();
+    return Boolean(account && row.parent === account.id);
+  }
+
+  function canApproveBinding(row) {
+    if (!row || row.status !== "pending_binding_review") return false;
+    const account = currentAccount();
+    if (!account) return false;
+    const business = state.entities.channelAccounts.find((item) => item.id === row.ownerBusiness);
+    return business?.parent === account.id;
   }
 
   function activityPoolFor(owner, role = "") {
@@ -2973,7 +2972,6 @@
       rejectAccount,
       runMainFlow,
       generateBdBill,
-      confirmBdBill,
       payBdBill,
     };
     if (actions[action]) {
@@ -3170,6 +3168,7 @@
       rejectReason: "",
       createdAt: nowText(),
     };
+    const chain = channelChainForBusiness(invite.owner);
     state.entities.bindingApplications.push(application);
     state.entities.workorders.unshift({
       id: "WO-" + appId,
@@ -3179,11 +3178,11 @@
       owner: invite.owner,
       createdBy: payload.customerId,
       status: "pending_binding_review",
-      handler: "总后台",
+      handler: chain.operator || chain.investor || "上游账号",
       createdAt: nowText(),
     });
     state.ui.customerSubmitResult = "success";
-    addAudit("客户", "提交绑定申请", `生成绑定申请 ${appId}，等待总后台审批`);
+    addAudit("客户", "提交绑定申请", `生成绑定申请 ${appId}，等待上游审批`);
   }
 
   function approveFirstBinding() {
@@ -3240,7 +3239,7 @@
     const item = state.entities.bindingApplications.find((row) => row.id === id);
     if (!item) return;
     item.status = "rejected";
-    item.rejectReason = "平台终审驳回：客户资料或归属依据不足";
+    item.rejectReason = "上游审批驳回：客户资料或归属依据不足";
     state.entities.workorders.forEach((wo) => {
       if (wo.id === "WO-" + id) wo.status = "rejected";
     });
@@ -3272,15 +3271,12 @@
       usageUnit: model.usageUnit,
       recharge: 10000,
       consume: 6000,
-      refund: 500,
-      coupon: 1000,
-      gift: 300,
-      effectiveBase: 9500,
+      effectiveBase: 10000,
       createdAt: nowText(),
       status: "calculated",
       ruleVersion: "2026-07-v1",
     });
-    addAudit(actorName(), "生成业绩", `${ledger.customerId} 充值 10000，扣除退款 500，返点基数 9500；优惠券和赠送额度参与返点`);
+    addAudit(actorName(), "生成业绩", `${ledger.customerId} 充值 10000，消费 6000，按已配置返佣规则计算返点基数`);
   }
 
   function generateSettlement() {
@@ -3848,16 +3844,16 @@
     state.entities.accountApplications.push({ ...payload, password: defaultResetPassword(payload.id), mustChangePassword: true, passwordUpdatedAt: nowText(), status: "pending_official_review", createdAt: nowText() });
     state.entities.workorders.unshift({
       id: "WO-ACC-" + payload.id,
-      type: "账号资料终审",
-      title: payload.name + " 官方终审",
+      type: "账号资料审批",
+      title: payload.name + " 上游审批",
       target: payload.id,
       owner: payload.createdBy,
       createdBy: payload.createdBy,
       status: "pending_official_review",
-      handler: "总后台",
+      handler: payload.parent || "上游账号",
       createdAt: nowText(),
     });
-    addAudit(actorName(), "创建账号资料", payload.name + " 进入待官方终审");
+    addAudit(actorName(), "创建账号资料", payload.name + " 进入待上游审批");
   }
 
   function approveAccount(id) {
@@ -3865,12 +3861,12 @@
     if (!app) return;
     app.status = "active";
     if (!state.entities.channelAccounts.some((item) => item.id === app.id)) {
-      state.entities.channelAccounts.push({ ...app, username: app.username || app.id.toLowerCase(), password: app.password || defaultResetPassword(app.id), mustChangePassword: true, passwordUpdatedAt: app.passwordUpdatedAt || nowText(), status: "active", source: "终审启用" });
+      state.entities.channelAccounts.push({ ...app, username: app.username || app.id.toLowerCase(), password: app.password || defaultResetPassword(app.id), mustChangePassword: true, passwordUpdatedAt: app.passwordUpdatedAt || nowText(), status: "active", source: "上游审批启用" });
     }
     state.entities.workorders.forEach((wo) => {
       if (wo.id === "WO-ACC-" + id) wo.status = "approved";
     });
-    addAudit(actorName(), "账号官方终审通过", id + " 已启用并写入组织关系");
+    addAudit(actorName(), "账号上游审批通过", id + " 已启用并写入组织关系");
   }
 
   function rejectAccount(id) {
@@ -3880,7 +3876,7 @@
     state.entities.workorders.forEach((wo) => {
       if (wo.id === "WO-ACC-" + id) wo.status = "rejected";
     });
-    addAudit(actorName(), "账号官方终审驳回", id + " 未启用");
+    addAudit(actorName(), "账号上游审批驳回", id + " 未启用");
   }
 
   function runMainFlow() {
@@ -3932,32 +3928,16 @@
       base: billableAmount,
       rate: relation.rate,
       amount: Math.round(billableAmount * relation.rate * 100) / 100,
-      status: "pending_bd_confirm",
-      bdConfirmedAt: "",
+      status: "pending_payment",
     });
     relation.latestBill = billId;
-    addAudit(actorName(), "生成 BD 账单", `${period.label} 模型BD返点账单已生成，待BD确认`);
-  }
-
-  function confirmBdBill(id) {
-    const user = currentUser();
-    const rows = state.entities.bdBills.filter((item) => item.id === id && item.status === "pending_bd_confirm");
-    const allowedRows = user?.role === "externalBD" ? rows.filter((item) => item.owner === user.accountId) : [];
-    if (!allowedRows.length) {
-      addAudit(actorName(), "确认 BD 账单", "没有可确认的BD账单");
-      return;
-    }
-    allowedRows.forEach((row) => {
-      row.status = "pending_payment";
-      row.bdConfirmedAt = nowText();
-    });
-    addAudit(actorName(), "确认 BD 账单", allowedRows.map((row) => row.id).join("、") + " 已确认，待总后台打款");
+    addAudit(actorName(), "生成 BD 账单", `${period.label} 模型BD返点账单已生成，直接进入待打款`);
   }
 
   function payBdBill(id) {
     const rows = id ? state.entities.bdBills.filter((item) => item.id === id && item.status === "pending_payment") : state.entities.bdBills.filter((item) => item.status === "pending_payment");
     if (!rows.length) {
-      addAudit(actorName(), "登记 BD 打款", "没有BD已确认的待打款账单");
+      addAudit(actorName(), "登记 BD 打款", "没有待打款BD账单");
       return;
     }
     rows.forEach((row) => {
