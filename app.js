@@ -1367,28 +1367,37 @@
         <button class="btn" data-page="performance">交易明细</button>
         <button class="btn primary" data-page="settlements">结算明细</button>
       `)}
-      <div class="grid cols-4">
-        ${metric("新增客户数", String(summary.newCustomers), "当前筛选周期")}
-        ${metric("累计客户数", String(summary.totalCustomers), "有效绑定客户")}
-        ${metric("已充值客户数", String(summary.chargedCustomers), "产生充值行为")}
-        ${metric("充值订单数", String(summary.rechargeOrders), "当前可见链路")}
-      </div>
-      <div class="grid cols-4">
-        ${metric("充值金额", money(summary.rechargeAmount), "充值订单合计")}
-        ${metric("消耗金额", money(summary.consumeAmount), "客户模型消耗")}
-        ${metric("本账期预计结算", money(summary.expectedSettlement), "按当前规则预估")}
-        ${metric("绑定客户充值转化率", summary.conversion, "已充值客户 / 有效绑定客户")}
-      </div>
-      <div class="card">
-        <div class="card-header">
-          <div><h3>每月趋势</h3><p>展示历史账期结算金额和本账期预计结算。</p></div>
-          ${featureBadges(true, true)}
+      <div class="dashboard-shell">
+        <section class="dashboard-summary">
+          <div class="dashboard-primary">
+            <span>本账期预计结算</span>
+            <strong>${escapeHtml(money(summary.expectedSettlement))}</strong>
+            <small>${escapeHtml(summary.currentPeriodLabel)} 按当前规则预估</small>
+          </div>
+          <div class="dashboard-kpi-grid">
+            ${dashboardKpi("新增客户数", String(summary.newCustomers), "当前筛选周期")}
+            ${dashboardKpi("累计客户数", String(summary.totalCustomers), "有效绑定客户")}
+            ${dashboardKpi("已充值客户数", String(summary.chargedCustomers), "产生充值行为")}
+            ${dashboardKpi("充值订单数", String(summary.rechargeOrders), "当前可见链路")}
+            ${dashboardKpi("充值金额", money(summary.rechargeAmount), "订单合计")}
+            ${dashboardKpi("消耗金额", money(summary.consumeAmount), "客户模型消耗")}
+            ${dashboardKpi("绑定客户充值转化率", summary.conversion, "已充值 / 有效绑定")}
+            ${dashboardKpi("账期", summary.currentPeriodLabel, "自然月")}
+          </div>
+        </section>
+        <div class="dashboard-grid">
+          <section class="card dashboard-card dashboard-monthly">
+            <div class="card-header">
+              <div><h3>每月趋势</h3><p>历史账期显示已结算金额，本账期显示预计结算。</p></div>
+              ${featureBadges(true, true)}
+            </div>
+            ${renderMonthlyTrend(summary.monthlyRows)}
+          </section>
+          <section class="card dashboard-card daily-flow-card">
+            <div class="card-header"><div><h3>每日运营趋势</h3><p>按日期展示新增、充值、消耗和预计结算。</p></div>${featureBadges(true, true)}</div>
+            ${renderDailyRealtimeRows(summary.dailyRows)}
+          </section>
         </div>
-        ${renderMonthlyTrend(summary.monthlyRows)}
-      </div>
-      <div class="card daily-flow-card">
-        <div class="card-header"><div><h3>每日运营趋势</h3><p>展示每日新增客户、充值金额、消耗金额和预计结算。</p></div>${featureBadges(true, true)}</div>
-        ${renderDailyRealtimeRows(summary.dailyRows)}
       </div>
     `;
   }
@@ -2223,6 +2232,16 @@
     `;
   }
 
+  function dashboardKpi(label, value, hint) {
+    return `
+      <div class="dashboard-kpi">
+        <span>${escapeHtml(label)}</span>
+        <strong>${escapeHtml(value)}</strong>
+        <small>${escapeHtml(hint)}</small>
+      </div>
+    `;
+  }
+
   function monthLabel(offset = 0) {
     const date = new Date();
     date.setMonth(date.getMonth() + offset);
@@ -2349,13 +2368,19 @@
 
   function renderDailyRealtimeRows(rows) {
     if (!rows.length) return `<div class="empty">暂无运营趋势。</div>`;
-    return table([
-      { key: "day", label: "日期" },
-      { key: "newCustomers", label: "新增客户" },
-      { key: "recharge", label: "充值金额", type: "money" },
-      { key: "consume", label: "消耗金额", type: "money" },
-      { key: "settlement", label: "预计结算额", type: "money" },
-    ], rows);
+    return `
+      <div class="daily-trend-list">
+        ${rows.map((row) => `
+          <div class="daily-trend-row">
+            <strong>${escapeHtml(row.day)}</strong>
+            <span>新增 ${escapeHtml(String(row.newCustomers))}</span>
+            <span>充值 ${escapeHtml(money(row.recharge))}</span>
+            <span>消耗 ${escapeHtml(money(row.consume))}</span>
+            <span>预计 ${escapeHtml(money(row.settlement))}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
   }
 
   function modelProviderConsumptionRows(user, transactions = visibleTransactions(user)) {
