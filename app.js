@@ -112,8 +112,8 @@
       entities: {
         channelAccounts: [
           { id: "BD1001", role: "investor", name: "招商 BD1001", username: "bdtest123", password: "bdtest123", mustChangePassword: false, passwordUpdatedAt: now, parent: "", status: "active", beneficiary: "主体A", payment: "招商收款户A", contact: "13810001001", source: "现有账号" },
-          { id: "OP2001", role: "operator", name: "运营 OP2001", username: "yytest123", password: "yytest123", mustChangePassword: false, passwordUpdatedAt: now, parent: "BD1001", status: "active", beneficiary: "主体B", payment: "运营收款户B", contact: "13820002001", source: "现有账号" },
-          { id: "SW3001", role: "business", name: "商务 SW3001", username: "swtest123", password: "swtest123", mustChangePassword: false, passwordUpdatedAt: now, parent: "OP2001", status: "active", beneficiary: "主体C", payment: "商务收款户C", contact: "13830003001", source: "现有账号" },
+          { id: "OP2001", role: "operator", name: "运营 OP2001", username: "yytest123", password: "yytest123", mustChangePassword: false, passwordUpdatedAt: now, parent: "BD1001", status: "active", beneficiary: "主体B", payment: "运营收款户B", contact: "13820002001", rechargeRate: 0.02, consumeRate: 0.02, source: "现有账号" },
+          { id: "SW3001", role: "business", name: "商务 SW3001", username: "swtest123", password: "swtest123", mustChangePassword: false, passwordUpdatedAt: now, parent: "OP2001", status: "active", beneficiary: "主体C", payment: "商务收款户C", contact: "13830003001", rechargeRate: 0.04, consumeRate: 0.04, source: "现有账号" },
         ],
         bdAccounts: [
           { id: "MXBD001", name: "模型BD MXBD001", username: "mxbd123", password: "mxbd123", mustChangePassword: false, passwordUpdatedAt: now, status: "active", beneficiary: "模型BD主体A", payment: "BD 收款户A", contact: "13910001001", source: "现有账号", createdAt: now },
@@ -176,7 +176,7 @@
     return {
       investor: {
         title: "招商规则说明",
-        markdown: "## 招商规则说明\n- 招商可查看自己的运营、运营的商务、商务客户和链路内业绩。\n- 招商不直接绑定客户，客户归属必须由商务邀请链接进入并通过上级审批。\n- 结算按已配置返点规则和自然月账单流转，渠道侧不需要手动确认账单。",
+        markdown: "## 招商规则说明\n- 招商可查看直属运营、运营名下商务、商务客户和链路内业绩。\n- 招商不直接绑定客户，客户归属必须由商务邀请链接进入并通过上级审批。\n- 结算按已配置返点规则和自然月账单流转，渠道侧不需要手动确认账单。",
         updatedAt: now,
       },
       operator: {
@@ -233,7 +233,9 @@
       mustChangePassword: Boolean(account.mustChangePassword),
       passwordUpdatedAt: account.passwordUpdatedAt || account.createdAt || nowText(),
       contact: account.contact || defaultPhoneForAccount(account.id),
-      rebateRuleId: account.rebateRuleId || "",
+      rebateRuleId: account.role === "investor" ? account.rebateRuleId || "" : "",
+      rechargeRate: account.role === "investor" ? Number(account.rechargeRate || 0) : Number(account.rechargeRate ?? (account.role === "operator" ? 0.02 : account.role === "business" ? 0.04 : 0)),
+      consumeRate: account.role === "investor" ? Number(account.consumeRate || 0) : Number(account.consumeRate ?? (account.role === "operator" ? 0.02 : account.role === "business" ? 0.04 : 0)),
     }));
     next.entities.bdAccounts = (next.entities.bdAccounts || []).map((account) => ({
       ...account,
@@ -276,6 +278,11 @@
       contact: item.contact || "",
       rejectReason: item.rejectReason || "",
       ...item,
+    }));
+    next.entities.accountApplications = (next.entities.accountApplications || []).map((item) => ({
+      ...item,
+      rechargeRate: item.role === "investor" ? Number(item.rechargeRate || 0) : Number(item.rechargeRate || 0),
+      consumeRate: item.role === "investor" ? Number(item.consumeRate || 0) : Number(item.consumeRate || 0),
     }));
     next.entities.customers = (next.entities.customers || []).map((item) => ({
       company: "",
@@ -1056,6 +1063,10 @@
           <div class="field"><label>受益主体</label><input name="beneficiary" placeholder="合同/收款主体" /></div>
           <div class="field"><label>收款账户</label><input name="payment" placeholder="银行卡/对公账户/支付宝等" /></div>
           <div class="field"><label>手机号</label><input name="contact" placeholder="用于账号发放和异常联系" required /></div>
+          <div class="form-grid full-span" data-direct-rebate-fields hidden>
+            ${directRebateFields({ rechargeRate: 0, consumeRate: 0 })}
+          </div>
+          <div class="field full-span" data-investor-rule-field><label>招商返点规则</label><select name="rebateRuleId">${rebateRuleOptions("")}</select></div>
           <div class="toolbar"><button class="btn primary" type="submit">提交并启用</button></div>
         </form>
       `);
@@ -1077,7 +1088,21 @@
           <div class="field"><label>收款账户</label><input name="payment" value="${escapeHtml(row.payment)}" /></div>
           <div class="field"><label>手机号</label><input name="contact" value="${escapeHtml(row.contact || "")}" required /></div>
           <div class="field"><label>状态</label><select name="status"><option value="active" ${row.status === "active" ? "selected" : ""}>启用</option><option value="disabled" ${row.status === "disabled" ? "selected" : ""}>停用</option></select></div>
+          ${row.role === "investor" ? `<div class="field full-span"><label>招商返点规则</label><select name="rebateRuleId">${rebateRuleOptions(row.rebateRuleId)}</select></div>` : directRebateFields(row)}
           <div class="toolbar"><button class="btn primary" type="submit">保存修改</button></div>
+        </form>
+      `);
+    }
+    if (modal.type === "editDownstreamRebate") {
+      const row = state.entities.channelAccounts.find((item) => item.id === modal.id);
+      if (!row) return "";
+      return modalShell(`编辑${roleName[row.role]}返点`, "仅修改直属下级的充值返点比例和消费返点比例，不使用总后台规则池。", closeButton, `
+        <form class="form-grid" data-form="updateDownstreamRebate">
+          <input type="hidden" name="id" value="${escapeHtml(row.id)}" />
+          <div class="field"><label>下级账号</label><input value="${escapeHtml(channelAccountLabel(row.id))}" readonly /></div>
+          <div class="field"><label>直属上级</label><input value="${escapeHtml(row.parent || "-")}" readonly /></div>
+          ${directRebateFields(row)}
+          <div class="toolbar"><button class="btn primary" type="submit">保存返点</button></div>
         </form>
       `);
     }
@@ -1097,6 +1122,7 @@
           <div class="field"><label>受益主体</label><input name="beneficiary" placeholder="合同/收款主体" /></div>
           <div class="field"><label>收款账户</label><input name="payment" placeholder="打款账户" /></div>
           <div class="field"><label>手机号</label><input name="contact" placeholder="用于账号发放和异常联系" required /></div>
+          ${directRebateFields({ rechargeRate: 0, consumeRate: 0 })}
           <div class="toolbar"><button class="btn primary" type="submit">提交资料</button></div>
         </form>
       `);
@@ -1731,13 +1757,13 @@
   function renderRebateRules(user) {
     const rules = filterListRows("rebateRules", visibleRebateRules(user), ["id", "name", "basis", "cycle", "status"]);
     return `
-      ${pageHeader("返点规则", "维护规则库后，在账号治理中给具体招商、运营、商务账号选择规则。", `
+      ${pageHeader("返点规则", "维护规则库后，总后台创建招商账号时从规则池选择；运营和商务由直属上级手动配置返点。", `
         <button class="btn primary" data-action="openModal" data-modal="addRebateRule">新增返佣规则</button>
       `)}
       ${adminFilterBar(["规则库：先建规则", "渠道账号：下拉选择规则", "口径：充值和消费可配置", "周期：按规则配置"], `<button class="btn ghost" type="button">导出规则清单</button>`)}
       ${renderListFilter("rebateRules", "输入规则名称、口径、周期或状态", visibleRebateRules(user))}
       <div class="card">
-        <div class="card-header"><div><h3>规则库</h3><p>这里只维护已写好的返点规则，不在渠道账号行逐项手填比例。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>规则库</h3><p>这里只维护给招商账号使用的返点规则；运营、商务不走规则池。</p></div>${featureBadges(true, true)}</div>
         ${renderRulesTable(rules)}
       </div>
     `;
@@ -1773,9 +1799,9 @@
       const reviewedBindings = filterListRows("workorders", rawReviewedBindings, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "rejectReason"]);
       const workorders = filterListRows("workorders", rawWorkorders, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
       return `
-        ${pageHeader("审批记录", "账号资料和客户归属按上级审批流转，总后台在这里查看全量记录。", "")}
+        ${pageHeader("审批中心", "账号资料和客户归属按上级审批流转，总后台在这里查看全量记录。", "")}
         ${adminFilterBar(["类型：账号资料/客户归属", "状态：待处理/已通过/已驳回", "处理人：上级账号", "SLA：24 小时内"], `<button class="btn ghost" type="button">查看处理规则</button>`)}
-        ${renderListFilter("workorders", "输入工单、申请单、客户、账号、业务对象或状态", filterRows)}
+        ${renderListFilter("workorders", "输入审批单、申请单、客户、账号、业务对象或状态", filterRows)}
         <div class="card">
           <div class="card-header"><div><h3>账号资料审批</h3><p>招商创建运营、运营创建商务后，由上级账号审批启用。</p></div>${featureBadges(false, true)}</div>
           ${renderAccountApplications(accountApplications)}
@@ -1792,7 +1818,7 @@
           ${renderBindingTable(reviewedBindings)}
         </div>
         <div class="card">
-          <div class="card-header"><div><h3>工单记录</h3><p>每个审批和处理动作都有业务对象、状态和处理人。</p></div>${featureBadges(true, true)}</div>
+          <div class="card-header"><div><h3>审批列表</h3><p>每个审批和处理动作都有业务对象、状态和处理人。</p></div>${featureBadges(true, true)}</div>
           ${renderWorkorderTable(workorders)}
         </div>
       `;
@@ -1800,10 +1826,10 @@
     const rawRows = visibleWorkorders(user);
     const rows = filterListRows("workorders", rawRows, ["id", "type", "title", "target", "status", "handler", "createdAt"]);
     return `
-      ${pageHeader("审批记录", "查看账号资料和客户归属上级审批事项，不做泛化留言板。", "")}
-      ${renderListFilter("workorders", "输入工单、标题、业务对象或状态", rawRows)}
+      ${pageHeader("审批中心", "查看账号资料和客户归属上级审批事项，不做泛化留言板。", "")}
+      ${renderListFilter("workorders", "输入审批单、标题、业务对象或状态", rawRows)}
       <div class="card">
-        <div class="card-header"><div><h3>工单列表</h3><p>每个工单都必须有业务对象、状态、处理人和结果。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>审批列表</h3><p>每条审批都必须有业务对象、状态、处理人和结果。</p></div>${featureBadges(true, true)}</div>
         ${renderWorkorderTable(rows)}
       </div>
     `;
@@ -1878,7 +1904,7 @@
     const rawRows = visibleWorkorders(user).map((item) => ({ title: item.title, status: item.status, related: item.target, time: item.createdAt }));
     const rows = filterListRows("messages", rawRows, ["title", "status", "related", "time"]);
     return `
-      ${pageHeader("工单消息", "状态变化、审批结论、疑问处理和付款完成都应通知对应角色。", "")}
+      ${pageHeader("消息通知", "状态变化、审批结论、疑问处理和付款完成都应通知对应角色。", "")}
       ${renderListFilter("messages", "输入消息、业务对象、时间或状态", rawRows)}
       <div class="card">
         ${table([
@@ -2070,7 +2096,7 @@
     const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     const summaryRows = renderBusinessConsumptionSummary(businesses.map((item) => item.id));
     return `
-      ${pageHeader("我的团队", "招商可查看自己的运营、运营的商务，以及商务消耗汇总；不展示商务客户明细。", `
+      ${pageHeader("我的团队", "招商可查看直属运营、运营名下商务，以及商务消耗汇总；不展示商务客户明细。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>
       `)}
       ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色或状态", rawOperators.concat(rawBusinesses, rawApplications))}
@@ -2079,7 +2105,7 @@
         ${renderChannelAccountsTable(operators)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>运营的商务</h3><p>展示团队运营名下的商务账号。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>商务账号</h3><p>展示直属运营名下的商务账号。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(businesses)}
       </div>
       <div class="card">
@@ -2554,7 +2580,7 @@
       { key: "channelPath", label: "渠道链路", value: (row) => downstreamPath(row, currentUser()) },
       { key: "ruleName", label: "返点规则", value: (row) => ruleNameForAccount(settlementOwnerForCurrentUser(row, currentUser())) },
       { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, currentUser()), type: "money" },
-      { key: "rate", label: "返点比例", value: (row) => settlementRateForCurrentUser(row, currentUser()), type: "percent" },
+      { key: "rate", label: "返点比例", value: (row) => settlementRateForCurrentUser(row, currentUser()) },
       { key: "amount", label: "返点金额", value: (row) => projectedSettlementForTransactions(currentUser(), [row]), type: "money" },
       { key: "period", label: "账期", value: (row) => String(row.createdAt || nowText()).slice(0, 7) },
       { key: "settlementId", label: "结算单号", value: (row) => settlementIdForTransaction(row, currentUser()) },
@@ -2587,7 +2613,7 @@
     const owner = settlementOwnerForCurrentUser(row, user);
     const account = state.entities.channelAccounts.find((item) => item.id === owner);
     const rule = account ? ruleForSettlement(account.role, account.id) : null;
-    return rule?.rate || 0;
+    return settlementRateLabel(rule);
   }
 
   function settlementIdForTransaction(row, user) {
@@ -2600,7 +2626,7 @@
     return table([
       { key: "name", label: "规则" },
       { key: "basis", label: "口径" },
-      { key: "rate", label: "比例", type: "percent" },
+      { key: "rate", label: "比例" },
       { key: "cycle", label: "周期" },
       { key: "status", label: "状态", type: "status" },
     ], rows, (row) => currentUser()?.role === "admin" ? `
@@ -2648,7 +2674,7 @@
 
   function renderWorkorderTable(rows) {
     return table([
-      { key: "id", label: "工单" },
+      { key: "id", label: "审批单" },
       { key: "type", label: "类型" },
       { key: "title", label: "标题" },
       { key: "target", label: "业务对象" },
@@ -2666,6 +2692,8 @@
       { key: "parent", label: "拟上级" },
       { key: "createdBy", label: "创建人" },
       { key: "beneficiary", label: "受益主体" },
+      { key: "rechargeRate", label: "充值返点比例", type: "percent" },
+      { key: "consumeRate", label: "消费返点比例", type: "percent" },
       { key: "status", label: "状态", type: "status" },
     ], rows, (row) => canApproveAccount(row)
       ? `<button class="btn success" data-action="approveAccount" data-id="${row.id}">审批通过</button><button class="btn danger" data-action="rejectAccount" data-id="${row.id}">驳回</button>`
@@ -2718,14 +2746,25 @@
       { key: "username", label: "登录账号" },
       { key: "contact", label: "手机号" },
       { key: "mustChangePassword", label: "登录要求", value: (row) => row.mustChangePassword ? "首次登录改密" : "正常" },
-      { key: "rebateRule", label: "返点规则", value: (row) => ruleNameForAccount(row.id) },
+      { key: "rechargeRate", label: "充值返点比例", value: (row) => accountRebateDisplay(row, "recharge") },
+      { key: "consumeRate", label: "消费返点比例", value: (row) => accountRebateDisplay(row, "consume") },
       { key: "status", label: "状态", type: "status" },
       { key: "source", label: "来源" },
-    ], rows, (row) => currentUser()?.role === "admin" ? `
-      <button class="btn" data-action="openModal" data-modal="editChannelAccount" data-id="${row.id}">编辑</button>
-      <button class="btn" data-action="openModal" data-modal="assignRebateRule" data-id="${row.id}">${row.rebateRuleId ? "更换返点" : "配置返点"}</button>
-      <button class="btn" data-action="resetChannelPassword" data-id="${row.id}">重置密码</button>
-    ` : "");
+    ], rows, (row) => channelAccountActions(row));
+  }
+
+  function channelAccountActions(row) {
+    if (currentUser()?.role === "admin") {
+      return `
+        <button class="btn" data-action="openModal" data-modal="editChannelAccount" data-id="${row.id}">编辑</button>
+        ${row.role === "investor" ? `<button class="btn" data-action="openModal" data-modal="assignRebateRule" data-id="${row.id}">${row.rebateRuleId ? "更换规则" : "配置规则"}</button>` : ""}
+        <button class="btn" data-action="resetChannelPassword" data-id="${row.id}">重置密码</button>
+      `;
+    }
+    if (canEditDownstreamRebate(row)) {
+      return `<button class="btn" data-action="openModal" data-modal="editDownstreamRebate" data-id="${row.id}">编辑返点</button>`;
+    }
+    return "";
   }
 
   function renderBdAccountsTable(rows = state.entities.bdAccounts) {
@@ -2921,16 +2960,12 @@
 
   function seededAutoRuleIds() {
     return [
-      ["RULE", "SW3001", "202607"],
-      ["RULE", "OP2001", "202607"],
       ["RULE", "BD1001", "202607"],
     ].map((parts) => parts.join("-"));
   }
 
   function ensureDemoRebateRules() {
     const specs = [
-      { id: "DEMO-RULE-BUSINESS", accountId: "SW3001", name: "测试商务返佣规则", rate: 0.04 },
-      { id: "DEMO-RULE-OPERATOR", accountId: "OP2001", name: "测试运营返佣规则", rate: 0.02 },
       { id: "DEMO-RULE-INVESTOR", accountId: "BD1001", name: "测试招商返佣规则", rate: 0.01 },
     ];
     let created = 0;
@@ -2949,7 +2984,11 @@
       const account = state.entities.channelAccounts.find((item) => item.id === spec.accountId);
       if (account) account.rebateRuleId = spec.id;
     });
-    addAudit(actorName(), "配置测试返点规则", created ? `已创建 ${created} 条测试规则并完成账号选择` : "测试规则已存在并已完成账号选择");
+    const operator = state.entities.channelAccounts.find((item) => item.id === "OP2001");
+    const business = state.entities.channelAccounts.find((item) => item.id === "SW3001");
+    if (operator) Object.assign(operator, { rebateRuleId: "", rechargeRate: operator.rechargeRate || 0.02, consumeRate: operator.consumeRate || 0.02 });
+    if (business) Object.assign(business, { rebateRuleId: "", rechargeRate: business.rechargeRate || 0.04, consumeRate: business.consumeRate || 0.04 });
+    addAudit(actorName(), "配置测试返点规则", created ? `已创建 ${created} 条招商测试规则；运营和商务使用直属配置` : "招商测试规则已存在；运营和商务使用直属配置");
   }
 
   function channelAccountLabel(accountId) {
@@ -3012,15 +3051,46 @@
 
   function ruleForSettlement(role, owner) {
     const account = state.entities.channelAccounts.find((item) => item.id === owner && item.role === role);
-    if (!account?.rebateRuleId) return null;
-    return state.entities.rebateRules.find((rule) => rule.id === account.rebateRuleId && rule.status === "active") || null;
+    if (!account) return null;
+    if (role === "investor") {
+      if (!account.rebateRuleId) return null;
+      return state.entities.rebateRules.find((rule) => rule.id === account.rebateRuleId && rule.status === "active") || null;
+    }
+    return {
+      id: `DIRECT-${account.id}`,
+      name: "直属下级返点配置",
+      basis: "充值+消费",
+      rate: 0,
+      rechargeRate: Number(account.rechargeRate || 0),
+      consumeRate: Number(account.consumeRate || 0),
+      cycle: "自然月",
+      status: "active",
+      direct: true,
+    };
   }
 
   function ruleNameForAccount(accountId) {
     const account = state.entities.channelAccounts.find((item) => item.id === accountId);
+    if (account && account.role !== "investor") return `直属配置 / 充值 ${percent(account.rechargeRate || 0)} / 消费 ${percent(account.consumeRate || 0)}`;
     const rule = state.entities.rebateRules.find((item) => item.id === account?.rebateRuleId);
     if (!rule) return "未配置";
     return `${rule.name} / ${percent(rule.rate)}${rule.status === "active" ? "" : " / 停用"}`;
+  }
+
+  function accountRebateDisplay(row, type) {
+    if (row.role === "investor") {
+      return type === "recharge" ? ruleNameForAccount(row.id) : "按招商规则池";
+    }
+    return percent(type === "recharge" ? row.rechargeRate || 0 : row.consumeRate || 0);
+  }
+
+  function canEditDownstreamRebate(row) {
+    const user = currentUser();
+    const account = currentAccount();
+    if (!user || !account || !row) return false;
+    if (user.role === "investor") return row.role === "operator" && row.parent === account.id;
+    if (user.role === "operator") return row.role === "business" && row.parent === account.id;
+    return false;
   }
 
   function transactionFlowTotal(tx) {
@@ -3035,11 +3105,31 @@
   function rebateBaseForCurrentUser(tx, user = currentUser()) {
     const account = user?.role === "admin" ? null : currentAccount();
     const rule = account ? ruleForSettlement(account.role, account.id) : null;
-    return rebateBaseForTransaction(tx, rule?.basis || "充值");
+    return settlementBaseForRule(tx, rule);
   }
 
   function settlementBaseForRule(tx, rule) {
+    if (!rule) return 0;
+    if (rule?.direct) {
+      const rechargeBase = rule.rechargeRate ? rebateBaseForTransaction(tx, "充值") : 0;
+      const consumeBase = rule.consumeRate ? rebateBaseForTransaction(tx, "消费") : 0;
+      return rechargeBase + consumeBase;
+    }
     return rebateBaseForTransaction(tx, rule?.basis || "充值");
+  }
+
+  function settlementAmountForRule(tx, rule) {
+    if (!rule) return 0;
+    if (rule.direct) {
+      return rebateBaseForTransaction(tx, "充值") * Number(rule.rechargeRate || 0) + rebateBaseForTransaction(tx, "消费") * Number(rule.consumeRate || 0);
+    }
+    return settlementBaseForRule(tx, rule) * Number(rule.rate || 0);
+  }
+
+  function settlementRateLabel(rule) {
+    if (!rule) return "未配置";
+    if (rule.direct) return `充值 ${percent(rule.rechargeRate || 0)} / 消费 ${percent(rule.consumeRate || 0)}`;
+    return percent(rule.rate || 0);
   }
 
   function projectedSettlementForTransactions(user, rows = visibleTransactions(user)) {
@@ -3056,7 +3146,7 @@
         if (!scope.includes(item.owner)) return innerSum;
         const rule = ruleForSettlement(item.role, item.owner);
         if (!rule) return innerSum;
-        return innerSum + rebateBaseForTransaction(tx, rule.basis) * rule.rate;
+        return innerSum + settlementAmountForRule(tx, rule);
       }, 0);
       return sum + amount;
     }, 0);
@@ -3200,9 +3290,14 @@
     document.querySelectorAll("[data-channel-role-select]").forEach((select) => {
       const form = select.closest("form");
       const parentInput = form?.querySelector("[data-channel-parent-input]");
+      const directRebateFields = form?.querySelector("[data-direct-rebate-fields]");
+      const investorRuleField = form?.querySelector("[data-investor-rule-field]");
       if (!parentInput) return;
       const sync = () => {
-        if (select.value === "investor") {
+        const isInvestor = select.value === "investor";
+        if (directRebateFields) directRebateFields.hidden = isInvestor;
+        if (investorRuleField) investorRuleField.hidden = !isInvestor;
+        if (isInvestor) {
           parentInput.value = "";
           parentInput.placeholder = "招商无上级";
           parentInput.readOnly = true;
@@ -3226,6 +3321,7 @@
       submitCustomerBindingForm,
       createChannelAccount,
       updateChannelAccount,
+      updateDownstreamRebate,
       createAccountDraftForm,
       createModelBdAccount,
       updateModelBdAccount,
@@ -3623,8 +3719,8 @@
       periodEnd: period.end,
       owner: item.owner,
       base: item.base,
-      rate: item.rule.rate,
-      amount: Math.round(item.base * item.rule.rate * 100) / 100,
+      rate: settlementRateLabel(item.rule),
+      amount: Math.round(settlementAmountForRule(tx, item.rule) * 100) / 100,
       ruleId: item.rule.id,
       ruleName: item.rule.name,
       cycle: item.rule.cycle,
@@ -3708,6 +3804,9 @@
       beneficiary: formValue(formData, "beneficiary") || `${config.beneficiary}${id.slice(-1)}`,
       payment: formValue(formData, "payment") || `${config.payment}${id.slice(-1)}`,
       contact,
+      rebateRuleId: role === "investor" ? formValue(formData, "rebateRuleId") : "",
+      rechargeRate: role === "investor" ? 0 : percentInput(formValue(formData, "rechargeRate"), 0),
+      consumeRate: role === "investor" ? 0 : percentInput(formValue(formData, "consumeRate"), 0),
       source: "总后台创建",
       createdAt: nowText(),
     };
@@ -3731,7 +3830,31 @@
     account.payment = formValue(formData, "payment") || account.payment;
     account.contact = contact;
     account.status = formValue(formData, "status") || account.status;
+    if (account.role === "investor") {
+      account.rebateRuleId = formValue(formData, "rebateRuleId");
+    } else {
+      account.rechargeRate = percentInput(formValue(formData, "rechargeRate"), account.rechargeRate || 0);
+      account.consumeRate = percentInput(formValue(formData, "consumeRate"), account.consumeRate || 0);
+      account.rebateRuleId = "";
+    }
     addAudit(actorName(), "编辑渠道账号", `${id} 资料已更新`);
+  }
+
+  function updateDownstreamRebate(formData) {
+    const id = formValue(formData, "id");
+    const account = state.entities.channelAccounts.find((item) => item.id === id);
+    if (!account) {
+      addAudit(actorName(), "编辑直属下级返点", `${id} 不存在`);
+      return false;
+    }
+    if (!canEditDownstreamRebate(account)) {
+      addAudit(actorName(), "编辑直属下级返点", `${id} 不是当前账号直属下级`);
+      return false;
+    }
+    account.rechargeRate = percentInput(formValue(formData, "rechargeRate"), account.rechargeRate || 0);
+    account.consumeRate = percentInput(formValue(formData, "consumeRate"), account.consumeRate || 0);
+    account.rebateRuleId = "";
+    addAudit(actorName(), "编辑直属下级返点", `${channelAccountLabel(id)} 充值 ${percent(account.rechargeRate)}，消费 ${percent(account.consumeRate)}`);
   }
 
   function createModelBdAccount(formData) {
@@ -3852,6 +3975,10 @@
     if (!account) {
       addAudit(actorName(), "配置渠道返点规则", `${accountId} 不存在`);
       return;
+    }
+    if (account.role !== "investor") {
+      addAudit(actorName(), "配置渠道返点规则", "运营和商务不走规则池，由直属上级配置两项返点");
+      return false;
     }
     if (ruleId && !state.entities.rebateRules.some((item) => item.id === ruleId && item.status === "active")) {
       addAudit(actorName(), "配置渠道返点规则", "请选择已启用的返点规则");
@@ -4044,6 +4171,18 @@
     return `<div class="field"><label>初始密码</label><input data-default-password-hint value="默认密码 ${escapeHtml(defaultResetPassword())}，首次登录必须修改" readonly tabindex="-1" /></div>`;
   }
 
+  function directRebateFields(row = {}) {
+    return `
+      <div class="field"><label>充值返点比例（%）</label><input name="rechargeRate" value="${escapeHtml(ratePercentInputValue(row.rechargeRate))}" placeholder="如 2 表示 2%" /></div>
+      <div class="field"><label>消费返点比例（%）</label><input name="consumeRate" value="${escapeHtml(ratePercentInputValue(row.consumeRate))}" placeholder="如 2 表示 2%" /></div>
+    `;
+  }
+
+  function ratePercentInputValue(value) {
+    if (!Number(value || 0)) return "0.00";
+    return String(Number((Number(value) * 100).toFixed(2))).replace(/\.00$/, "");
+  }
+
   function defaultPhoneForAccount(id) {
     const digits = String(id || "").replace(/\D/g, "").slice(-4).padStart(4, "0");
     return `1380000${digits}`;
@@ -4166,6 +4305,8 @@
       beneficiary: formValue(formData, "beneficiary") || `${roleName[role]}主体${id.slice(-1)}`,
       payment: formValue(formData, "payment") || `${roleName[role]}收款户${id.slice(-1)}`,
       contact,
+      rechargeRate: percentInput(formValue(formData, "rechargeRate"), 0),
+      consumeRate: percentInput(formValue(formData, "consumeRate"), 0),
     });
   }
 
