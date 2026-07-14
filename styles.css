@@ -1606,3 +1606,348 @@ tr:last-child td {
     grid-template-columns: 1fr;
   }
 }
+
+@media (max-width: 640px) {
+  body {
+    background: #f4f6f8;
+  }
+
+  .login-shell {
+    padding: 14px;
+  }
+
+  .login-intro,
+  .login-form {
+    padding: 20px;
+  }
+
+  .account-grid,
+  .customer-summary-grid,
+  .customer-form,
+  .filter-form {
+    grid-template-columns: 1fr;
+  }
+
+  .prototype-workspace {
+    display: block;
+  }
+
+  .prototype-ops {
+    max-height: 42vh;
+    padding: 10px;
+    border-bottom: 1px solid #0f172a;
+  }
+
+  .ops-brand {
+    padding: 4px 4px 10px;
+  }
+
+  .ops-brand strong {
+    font-size: 14px;
+  }
+
+  .ops-section {
+    margin-top: 10px;
+    gap: 5px;
+  }
+
+  .ops-btn {
+    min-height: 32px;
+    padding: 7px 8px;
+    font-size: 12px;
+  }
+
+  .assist-layer {
+    position: static;
+    width: 100%;
+    padding: 8px 10px;
+    display: block;
+    background: var(--state-bg);
+  }
+
+  .assist-drawer {
+    width: 100%;
+  }
+
+  .state-panel {
+    max-height: 36vh;
+    padding: 10px;
+  }
+
+  .sidebar {
+    padding: 10px;
+    overflow-x: auto;
+    white-space: nowrap;
+    scrollbar-width: none;
+  }
+
+  .sidebar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .brand {
+    padding: 4px 4px 10px;
+  }
+
+  .brand h2,
+  .admin-brand h2 {
+    font-size: 15px;
+  }
+
+  .brand p,
+  .role-card span {
+    font-size: 11px;
+  }
+
+  .role-card {
+    margin: 8px 0;
+    padding: 8px;
+  }
+
+  .nav-group-title {
+    margin: 10px 4px 6px;
+  }
+
+  .nav-item {
+    width: auto;
+    min-height: 32px;
+    display: inline-flex;
+    margin: 0 5px 6px 0;
+    padding: 7px 9px;
+    font-size: 13px;
+    vertical-align: top;
+  }
+
+  .admin-sidebar .nav-disabled {
+    display: none;
+  }
+
+  .main,
+  .customer-public-main {
+    padding: 12px 10px 48px;
+  }
+
+  .topbar,
+  .admin-top,
+  .article-topbar {
+    gap: 10px;
+    margin-bottom: 12px;
+  }
+
+  .topbar h1,
+  .admin-top h1,
+  .article-topbar h1 {
+    font-size: 20px;
+    line-height: 1.3;
+  }
+
+  .topbar p,
+  .admin-top p,
+  .article-topbar p {
+    margin-top: 5px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .toolbar,
+  .admin-top-actions {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 7px;
+    min-width: 0;
+  }
+
+  .btn {
+    min-height: 34px;
+    padding: 7px 10px;
+    font-size: 13px;
+  }
+
+  .grid {
+    gap: 8px;
+  }
+
+  .card {
+    padding: 10px;
+  }
+
+  .card + .card {
+    margin-top: 8px;
+  }
+
+  .card-header {
+    display: block;
+    margin-bottom: 10px;
+  }
+
+  .card h3 {
+    font-size: 15px;
+  }
+
+  .card p {
+    font-size: 12px;
+    line-height: 1.45;
+  }
+
+  .metric {
+    min-height: 82px;
+  }
+
+  .metric .label,
+  .metric .hint {
+    font-size: 11px;
+  }
+
+  .metric .value {
+    margin-top: 5px;
+    font-size: 22px;
+    line-height: 1.15;
+  }
+
+  .admin-filter-bar {
+    padding: 9px;
+  }
+
+  .filter-chips {
+    flex-basis: auto;
+    width: 100%;
+  }
+
+  .filter-chips span {
+    min-height: 24px;
+    padding: 4px 7px;
+    font-size: 11px;
+  }
+
+  .filter-form {
+    padding: 9px;
+  }
+
+  .table-wrap {
+    border-radius: 7px;
+  }
+
+  table {
+    min-width: 680px;
+  }
+
+  th,
+  td {
+    padding: 8px 9px;
+    font-size: 12px;
+  }
+
+  .trend-line-chart {
+    gap: 10px;
+  }
+
+  .trend-chart-panel {
+    padding: 9px 8px 2px;
+  }
+
+  .trend-chart-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .trend-chart-svg {
+    min-height: 128px;
+  }
+
+  .trend-point-label {
+    display: none;
+  }
+
+  .trend-chart-values div {
+    padding: 8px;
+  }
+
+  .modal-backdrop {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .modal-panel {
+    max-height: calc(100vh - 16px);
+  }
+
+  .modal-head,
+  .modal-body {
+    padding: 12px;
+  }
+
+  .modal-head {
+    display: block;
+  }
+
+  .modal-head .toolbar {
+    margin-top: 8px;
+  }
+
+  .modal-head h2 {
+    font-size: 16px;
+  }
+
+  .field {
+    margin-bottom: 10px;
+  }
+
+  .field input,
+  .field select,
+  .field textarea {
+    min-height: 36px;
+    padding: 8px 9px;
+    font-size: 13px;
+  }
+
+  .customer-public-head,
+  .customer-public-body {
+    padding: 16px;
+  }
+
+  .customer-public-head {
+    display: block;
+  }
+
+  .customer-public-head h1 {
+    font-size: 20px;
+  }
+
+  .customer-public-badge {
+    display: inline-flex;
+    margin-top: 10px;
+  }
+}
+
+@media (max-width: 420px) {
+  .main,
+  .customer-public-main {
+    padding-left: 8px;
+    padding-right: 8px;
+  }
+
+  .toolbar .btn,
+  .button-row .btn,
+  .admin-top-actions .btn {
+    flex: 1 1 calc(50% - 8px);
+    min-width: 0;
+  }
+
+  .metric {
+    min-height: 76px;
+  }
+
+  .metric .value {
+    font-size: 20px;
+  }
+
+  .btn {
+    white-space: normal;
+    text-align: center;
+  }
+
+  table {
+    min-width: 620px;
+  }
+}

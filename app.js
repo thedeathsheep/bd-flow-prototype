@@ -34,10 +34,11 @@
     unbound: "未绑定",
     raw: "原始流水",
     calculated: "已计算返点基数",
-    pending_admin_review: "待总后台审核",
-    approved: "审核通过",
+    pending_admin_review: "待打款",
+    approved: "已通过",
     pending_bd_confirm: "待打款",
     pending_payment: "待打款",
+    payment_failed: "打款失败",
     paid: "已打款",
     archived: "已归档",
     pending_signature: "待在线签字",
@@ -47,46 +48,54 @@
   const navs = {
     admin: [
       ["accounts", "账号治理"],
-      ["workorders", "审批记录"],
-      ["performance", "渠道返佣"],
-      ["settlements", "渠道结算"],
-      ["activityPoints", "活动积分"],
+      ["workorders", "审批中心"],
+      ["customerChannelOwnership", "客户渠道归属"],
+      ["rebateRules", "返点规则"],
+      ["activityPoints", "活动积分池"],
+      ["performance", "交易明细"],
+      ["settlements", "结算明细"],
       ["bdRelations", "BD 模型关联"],
       ["bdSettlement", "BD 结算"],
-      ["audit", "审计日志"],
-      ["customerChannelOwnership", "客户渠道归属"],
       ["help", "规则与协议"],
+      ["audit", "审计日志"],
     ],
     business: [
-      ["dashboard", "数据中心"],
-      ["performance", "返点流水"],
+      ["dashboard", "数据概览"],
       ["bindings", "我的客户"],
-      ["settlements", "结算查看"],
-      ["activityPoints", "活动积分"],
+      ["consumption", "消耗明细"],
+      ["performance", "交易明细"],
+      ["settlements", "结算明细"],
+      ["messages", "站内信"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
     operator: [
-      ["dashboard", "数据中心"],
-      ["performance", "返点流水"],
+      ["dashboard", "数据概览"],
+      ["performance", "交易明细"],
+      ["settlements", "结算明细"],
       ["childAccounts", "我的团队"],
-      ["settlements", "结算查看"],
       ["activityPoints", "活动积分"],
+      ["messages", "站内信"],
+      ["workorders", "审批中心"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
     investor: [
-      ["dashboard", "数据中心"],
-      ["performance", "返点流水"],
+      ["dashboard", "数据概览"],
+      ["performance", "交易明细"],
+      ["settlements", "结算明细"],
       ["childAccounts", "我的团队"],
-      ["settlements", "结算查看"],
       ["activityPoints", "活动积分"],
+      ["messages", "站内信"],
+      ["workorders", "审批中心"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
     externalBD: [
       ["models", "模型用量"],
       ["bdBills", "返点结算"],
+      ["messages", "站内信"],
+      ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
   };
@@ -177,7 +186,7 @@
       },
       business: {
         title: "商务规则说明",
-        markdown: "## 商务规则说明\n- 商务通过客户邀约生成邀请链接，客户在独立页面提交绑定资料。\n- 客户归属上级审批通过前，不进入客户列表、不计业绩、不参与结算。\n- 商务可查看自己的客户、返点流水、返点规则和结算进度，不需要手动确认账单。",
+        markdown: "## 商务规则说明\n- 商务通过客户邀约生成邀请链接，客户在独立页面提交绑定资料。\n- 客户归属上级审批通过前，不进入客户列表、不计业绩、不参与结算。\n- 商务可查看自己的客户、消耗明细、交易明细和结算明细，账单不需要手动确认。",
         updatedAt: now,
       },
       externalBD: {
@@ -389,6 +398,11 @@
         status: bill.status === "pending_bd_confirm" ? "pending_payment" : bill.status,
       };
     });
+    next.entities.settlements = (next.entities.settlements || []).map((settlement) => ({
+      ...settlement,
+      status: ["pending_admin_review", "approved"].includes(settlement.status) ? "pending_payment" : settlement.status,
+      remark: settlement.remark || (["pending_admin_review", "approved"].includes(settlement.status) ? "旧结算状态已归一为待打款" : ""),
+    }));
     const seededHelpArticles = seedHelpArticles(nowText());
     const legacyArticleListKey = ["help", "Docs"].join("");
     const legacyHelpDoc = Array.isArray(next.entities[legacyArticleListKey])
@@ -571,7 +585,7 @@
       ? "current"
       : ["generated", "opened", "submitted", "pending_official_review", "pending_binding_review", "pending_admin_review", "pending_signature"].includes(status)
         ? "warn"
-        : ["rejected", "disabled", "expired"].includes(status)
+        : ["rejected", "disabled", "expired", "payment_failed"].includes(status)
           ? "danger"
           : "";
     return badge(label, type);
@@ -612,6 +626,7 @@
       name: model.name || "未配置模型",
       provider: normalizeProviderCode(model.provider, model.name),
       modelGroup: model.modelGroup || model.group || "-",
+      usageType: model.usageType || "模型消耗",
       billingType: model.billingType || "按次",
       usageUnit: model.usageUnit || "次",
     };
@@ -689,6 +704,13 @@
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
   }
 
+  function datetimeLocalValue(value) {
+    const date = value instanceof Date ? value : new Date(value || Date.now());
+    if (Number.isNaN(date.getTime())) return "";
+    const pad = (item) => String(item).padStart(2, "0");
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  }
+
   function defaultInviteExpiry() {
     const date = new Date();
     date.setDate(date.getDate() + 30);
@@ -752,7 +774,7 @@
     if (col.type === "money") return money(value);
     if (col.type === "percent") return percent(value);
     if (col.type === "badges") return `<div class="badge-row">${value.map((item) => badge(item.text, item.type)).join("")}</div>`;
-    return escapeHtml(value || "-");
+    return escapeHtml(value === 0 || value ? value : "-");
   }
 
   function render() {
@@ -796,9 +818,9 @@
         <section class="login-card">
           <div class="login-intro">
             <h1>招商后台全流程</h1>
-            <p>统一处理渠道账号、客户归属、业绩返点、结算审核与打款归档。</p>
+            <p>统一处理渠道账号、客户归属、交易明细、结算明细与打款归档。</p>
             <div class="notice">
-              推荐先用商务生成邀请链接，客户提交后由上级审批；账单由总后台结算人处理，渠道侧只查看进度。也可以直接点“跑通主流程”。
+              推荐先用商务视角查看数据概览、我的客户、消耗明细、交易明细和结算明细。也可以直接点“跑通主流程”。
             </div>
             <div class="account-grid">
               ${accounts.map((item) => `
@@ -899,15 +921,16 @@
   function renderAdminSidebar(user, roleNav) {
     const channelMenu = [
       ["accounts", "账号治理"],
-      ["workorders", "审批记录"],
-      ["performance", "渠道返佣"],
-      ["settlements", "渠道结算"],
+      ["workorders", "审批中心"],
+      ["customerChannelOwnership", "客户渠道归属"],
+      ["rebateRules", "返点规则"],
       ["activityPoints", "渠道积分池"],
+      ["performance", "交易明细"],
+      ["settlements", "结算明细"],
       ["bdRelations", "BD 模型关联"],
       ["bdSettlement", "BD 结算"],
-      ["audit", "审计日志"],
-      ["customerChannelOwnership", "客户渠道归属"],
       ["help", "规则与协议"],
+      ["audit", "审计日志"],
     ];
     const disabledGroups = [
       ["调度中心", ["调度看板", "任务列表", "任务统计", "Worker 列表", "配置项", "调度规则", "鉴权 Key", "插队定价"]],
@@ -957,6 +980,7 @@
       accounts: renderAdminAccounts,
       ownership: renderAdminOwnership,
       performance: renderPerformance,
+      rebateRules: renderRebateRules,
       settlements: renderSettlements,
       workorders: renderWorkorders,
       bdSettlement: renderBdSettlement,
@@ -965,6 +989,7 @@
       customerChannelOwnership: renderCustomerChannelOwnership,
       dashboard: renderChannelDashboard,
       bindings: renderBusinessBindings,
+      consumption: renderConsumptionDetails,
       activityPoints: renderActivityPoints,
       messages: renderMessages,
       profile: renderProfile,
@@ -1112,6 +1137,42 @@
           <div class="field"><label>角色</label><input value="${escapeHtml(roleName[account.role])}" readonly /></div>
           <div class="field"><label>返点规则</label><select name="rebateRuleId">${rebateRuleOptions(account.rebateRuleId)}</select></div>
           <div class="toolbar"><button class="btn primary" type="submit">保存配置</button></div>
+        </form>
+      `);
+    }
+    if (modal.type === "registerSettlementPayment") {
+      const row = state.entities.settlements.find((item) => item.id === modal.id);
+      if (!row) return "";
+      return modalShell("登记打款状态", "只记录线下打款事实，不修改账期、返点规则、返点基数或结算金额。", closeButton, `
+        <form class="form-grid" data-form="registerSettlementPayment">
+          <input type="hidden" name="id" value="${escapeHtml(row.id)}" />
+          <div class="field"><label>结算单</label><input value="${escapeHtml(row.id)}" readonly /></div>
+          <div class="field"><label>收款方</label><input value="${escapeHtml(row.owner)} / ${escapeHtml(row.role)}" readonly /></div>
+          <div class="field"><label>结算金额</label><input value="${escapeHtml(money(row.amount))}" readonly /></div>
+          <div class="field"><label>打款状态</label><select name="status"><option value="paid">已打款</option><option value="payment_failed">打款失败</option></select></div>
+          <div class="field"><label>打款时间</label><input name="paidAt" type="datetime-local" value="${datetimeLocalValue(row.paidAt || new Date())}" /></div>
+          <div class="field"><label>实付金额</label><input name="paidAmount" value="${escapeHtml(row.paidAmount || row.amount)}" /></div>
+          <div class="field"><label>付款流水号</label><input name="paymentNo" value="${escapeHtml(row.paymentNo || "")}" placeholder="银行流水号/转账单号" /></div>
+          <div class="field full-span"><label>备注</label><input name="paymentRemark" value="${escapeHtml(row.paymentRemark || "")}" placeholder="如：已通过对公账户打款" /></div>
+          <div class="toolbar"><button class="btn primary" type="submit">保存打款状态</button></div>
+        </form>
+      `);
+    }
+    if (modal.type === "registerBdPayment") {
+      const row = state.entities.bdBills.find((item) => item.id === modal.id);
+      if (!row) return "";
+      return modalShell("登记模型BD打款状态", "只记录线下打款事实，不修改模型用量、计费金额或返点金额。", closeButton, `
+        <form class="form-grid" data-form="registerBdPayment">
+          <input type="hidden" name="id" value="${escapeHtml(row.id)}" />
+          <div class="field"><label>账单</label><input value="${escapeHtml(row.id)}" readonly /></div>
+          <div class="field"><label>收款方</label><input value="${escapeHtml(row.owner)}" readonly /></div>
+          <div class="field"><label>返点金额</label><input value="${escapeHtml(money(row.amount))}" readonly /></div>
+          <div class="field"><label>打款状态</label><select name="status"><option value="paid">已打款</option><option value="payment_failed">打款失败</option></select></div>
+          <div class="field"><label>打款时间</label><input name="paidAt" type="datetime-local" value="${datetimeLocalValue(row.paidAt || new Date())}" /></div>
+          <div class="field"><label>实付金额</label><input name="paidAmount" value="${escapeHtml(row.paidAmount || row.amount)}" /></div>
+          <div class="field"><label>付款流水号</label><input name="paymentNo" value="${escapeHtml(row.paymentNo || "")}" placeholder="银行流水号/转账单号" /></div>
+          <div class="field full-span"><label>备注</label><input name="paymentRemark" value="${escapeHtml(row.paymentRemark || "")}" placeholder="如：已通过对公账户打款" /></div>
+          <div class="toolbar"><button class="btn primary" type="submit">保存打款状态</button></div>
         </form>
       `);
     }
@@ -1297,51 +1358,37 @@
   }
 
   function renderChannelDashboard(user) {
-    const account = currentAccount();
     const transactions = visibleTransactions(user);
     const settlementRows = visibleSettlements(user);
     const summary = channelDashboardSummary(user, transactions, settlementRows);
-    const modelProviderRows = modelProviderConsumptionRows(user, transactions);
-    const scopeRows = scopeConsumptionRows(user, transactions);
     return `
-      ${pageHeader(`${roleName[user.role]}数据中心`, "按当前账号的团队链路展示消耗、模型-provider分布、历史累计和今日实时增量。", `
-        <button class="btn" data-page="performance">查看返点流水</button>
-        ${user.role === "business" ? `<button class="btn primary" data-page="bindings">查看我的客户</button>` : ""}
+      ${pageHeader(`${roleName[user.role]}数据概览`, "展示客户拓展、充值转化、消耗活跃和预计结算情况。", `
+        ${user.role === "business" ? `<button class="btn" data-page="bindings">我的客户</button><button class="btn" data-page="consumption">消耗明细</button>` : ""}
+        <button class="btn" data-page="performance">交易明细</button>
+        <button class="btn primary" data-page="settlements">结算明细</button>
       `)}
       <div class="grid cols-4">
-        ${metric("本账期预计结算", money(summary.currentExpectedSettlement), `${summary.currentPeriodLabel} 可见链路`)}
-        ${metric("上账期结算", money(summary.previousSettlement), summary.previousPeriodLabel)}
-        ${metric("历史结算总额", money(summary.historySettlement), "按月汇总")}
-        ${metric("今日预计结算", `+ ${money(summary.todayExpectedSettlement)}`, "实时预估")}
+        ${metric("新增客户数", String(summary.newCustomers), "当前筛选周期")}
+        ${metric("累计客户数", String(summary.totalCustomers), "有效绑定客户")}
+        ${metric("已充值客户数", String(summary.chargedCustomers), "产生充值行为")}
+        ${metric("充值订单数", String(summary.rechargeOrders), "当前可见链路")}
       </div>
       <div class="grid cols-4">
-        ${metric("本期流水总额", money(summary.currentFlow), "充值 + 消费")}
-        ${metric("上账期流水", money(summary.previousFlow), summary.previousPeriodLabel)}
-        ${metric("历史流水总额", money(summary.historyFlow), "按月汇总")}
-        ${metric("今日流水", `+ ${money(summary.todayFlow)}`, "实时产生")}
+        ${metric("充值金额", money(summary.rechargeAmount), "充值订单合计")}
+        ${metric("消耗金额", money(summary.consumeAmount), "客户模型消耗")}
+        ${metric("本账期预计结算", money(summary.expectedSettlement), "按当前规则预估")}
+        ${metric("绑定客户充值转化率", summary.conversion, "已充值客户 / 有效绑定客户")}
       </div>
       <div class="card">
         <div class="card-header">
-          <div><h3>每月趋势</h3><p>展示可见链路内每月流水和预计结算额。</p></div>
+          <div><h3>每月趋势</h3><p>展示历史账期结算金额和本账期预计结算。</p></div>
           ${featureBadges(true, true)}
         </div>
         ${renderMonthlyTrend(summary.monthlyRows)}
       </div>
       <div class="card daily-flow-card">
-        <div class="card-header"><div><h3>今日实时流水</h3><p>展示今天新增的客户流水和对应预计结算。</p></div>${featureBadges(true, true)}</div>
-        ${renderDailyRealtimeRows(summary.todayRows, user)}
-      </div>
-      <div class="card">
-        <div class="card-header"><div><h3>模型-provider 消耗分布</h3><p>按客户实际使用的模型名称和 provider 聚合消耗金额。</p></div>${featureBadges(true, true)}</div>
-        ${renderModelProviderConsumptionTable(modelProviderRows)}
-      </div>
-      <div class="card">
-        <div class="card-header"><div><h3>下游消耗汇总</h3><p>招商看运营/商务汇总，运营看商务和客户，商务看客户。</p></div>${featureBadges(true, true)}</div>
-        ${renderScopeConsumptionSummary(scopeRows, user)}
-      </div>
-      <div class="card">
-        <div class="card-header"><div><h3>结算处理</h3><p>渠道侧仅查看结算进展；账单由结算人审核、打款并归档。</p></div>${featureBadges(true, true)}</div>
-        ${renderSettlementProgress(settlementRows)}
+        <div class="card-header"><div><h3>每日运营趋势</h3><p>展示每日新增客户、充值金额、消耗金额和预计结算。</p></div>${featureBadges(true, true)}</div>
+        ${renderDailyRealtimeRows(summary.dailyRows)}
       </div>
     `;
   }
@@ -1419,6 +1466,66 @@
         ${renderCustomerTable(customers)}
       </div>
     `;
+  }
+
+  function renderConsumptionDetails(user) {
+    const rawRows = consumptionDetailRows(user);
+    const rows = filterListRows("consumptionDetails", rawRows, ["period", "customerId", "userId", "customerAccount", "customerName", "model", "provider", "usageType", "billingType", "usageUnit", "status"]);
+    return `
+      ${pageHeader("消耗明细", "按时间周期查看客户模型用量和计费消耗；模型和 Provider 只作为明细字段。", "")}
+      ${renderListFilter("consumptionDetails", "输入周期、客户、模型、Provider、用量类型或计费类型", rawRows)}
+      <div class="card">
+        <div class="card-header"><div><h3>客户消耗明细</h3><p>页面主语是客户和时间周期，模型和 Provider 只作为明细字段。</p></div>${featureBadges(true, true)}</div>
+        ${renderConsumptionDetailsTable(rows)}
+      </div>
+    `;
+  }
+
+  function consumptionDetailRows(user) {
+    const transactions = visibleTransactions(user).filter((tx) => user.role === "business" ? tx.business === user.accountId : true);
+    return transactions.map((tx, index) => {
+      const fallback = channelTransactionModel(index, state.entities.models);
+      const customer = state.entities.customers.find((item) => item.id === tx.customerId) || {};
+      const unitPrice = Number(fallback.unitPriceSnapshot || 1);
+      const usageUnit = tx.usageUnit || fallback.usageUnit;
+      const usageCount = unitPrice ? Math.max(1, Math.round((Number(tx.consume || 0) / unitPrice) * 100) / 100) : Number(tx.consume || 0);
+      return {
+        period: String(tx.createdAt || nowText()).slice(0, 7),
+        customerId: tx.customerId,
+        userId: tx.customerId,
+        customerAccount: customer.account || "-",
+        customerName: customer.name || "-",
+        model: tx.modelName || fallback.name,
+        provider: tx.provider || fallback.provider,
+        usageType: fallback.usageType,
+        billingType: tx.billingType || fallback.billingType,
+        usageUnit,
+        usageCount,
+        amount: Number(tx.consume || 0),
+        ruleName: ruleNameForAccount(user.accountId),
+        expectedRebate: projectedSettlementForTransactions(user, [tx]),
+        status: tx.status || "calculated",
+      };
+    });
+  }
+
+  function renderConsumptionDetailsTable(rows) {
+    return table([
+      { key: "period", label: "统计周期" },
+      { key: "customerId", label: "客户ID" },
+      { key: "userId", label: "用户ID" },
+      { key: "customerAccount", label: "客户账号" },
+      { key: "customerName", label: "客户名称" },
+      { key: "model", label: "模型" },
+      { key: "provider", label: "Provider" },
+      { key: "usageType", label: "用量类型" },
+      { key: "billingType", label: "计费类型" },
+      { key: "usageUnit", label: "用量单位" },
+      { key: "usageCount", label: "用量数" },
+      { key: "amount", label: "计费金额", type: "money" },
+      { key: "ruleName", label: "返点规则" },
+      { key: "expectedRebate", label: "预计返点金额", type: "money" },
+    ], rows);
   }
 
   function renderCustomerBindPage() {
@@ -1595,12 +1702,9 @@
   function renderPerformance(user) {
     const transactions = filterTransactions(visibleTransactions(user));
     const isAdmin = currentUser()?.role === "admin";
-    const rules = visibleRebateRules(user);
     return `
-      ${pageHeader(isAdmin ? "渠道返佣" : "返点流水", "先维护返佣规则库，再给具体招商、运营、商务账号选择规则。", `
-        ${isAdmin ? `<button class="btn primary" data-action="openModal" data-modal="addRebateRule">新增返佣规则</button>` : ""}
-      `)}
-      ${isAdmin ? adminFilterBar([`账期：${settlementPeriod().label}`, "口径：充值/消费可配置", "规则库：先建规则", "渠道账号：下拉选择规则"], `<button class="btn ghost" type="button">导出核算明细</button>`) : ""}
+      ${pageHeader("交易明细", "查看充值、消耗、退款、人工调整、结算归档等事件产生的返点记录。", "")}
+      ${isAdmin ? adminFilterBar([`账期：${settlementPeriod().label}`, "来源：充值/消耗/退款/人工调整/结算", "范围：全部渠道链路", "用途：追踪返点记录"], `<button class="btn ghost" type="button">导出交易明细</button>`) : ""}
       ${renderPerformanceFilter()}
       <div class="grid cols-4">
         ${metric("充值流水", money(transactions.reduce((sum, item) => sum + item.recharge, 0)), "原始账务")}
@@ -1612,14 +1716,19 @@
         <div class="card-header"><div><h3>交易明细</h3><p>每笔流水保留客户、归属链路、返点基数和规则版本。</p></div>${featureBadges(true, true)}</div>
         ${renderTransactionsTable(transactions)}
       </div>
-      ${!isAdmin && currentUser()?.role !== "externalBD" ? `
-        <div class="card">
-          <div class="card-header"><div><h3>关联客户</h3><p>按当前账号链路筛选，只展示审批通过后的客户。</p></div></div>
-          ${renderCustomerTable(filterCustomers(visibleCustomers(user)))}
-        </div>
-      ` : ""}
+    `;
+  }
+
+  function renderRebateRules(user) {
+    const rules = filterListRows("rebateRules", visibleRebateRules(user), ["id", "name", "basis", "cycle", "status"]);
+    return `
+      ${pageHeader("返点规则", "维护规则库后，在账号治理中给具体招商、运营、商务账号选择规则。", `
+        <button class="btn primary" data-action="openModal" data-modal="addRebateRule">新增返佣规则</button>
+      `)}
+      ${adminFilterBar(["规则库：先建规则", "渠道账号：下拉选择规则", "口径：充值和消费可配置", "周期：按规则配置"], `<button class="btn ghost" type="button">导出规则清单</button>`)}
+      ${renderListFilter("rebateRules", "输入规则名称、口径、周期或状态", visibleRebateRules(user))}
       <div class="card">
-        <div class="card-header"><div><h3>返点规则</h3><p>${isAdmin ? "总后台维护规则库；渠道账号在账号治理中选择已写好的规则。" : "只展示当前账号已选择的返佣规则。"}</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>规则库</h3><p>这里只维护已写好的返点规则，不在渠道账号行逐项手填比例。</p></div>${featureBadges(true, true)}</div>
         ${renderRulesTable(rules)}
       </div>
     `;
@@ -1631,13 +1740,13 @@
     const isAdmin = user.role === "admin";
     const period = settlementPeriod();
     return `
-      ${pageHeader(isAdmin ? "渠道结算" : "结算查看", "按自然月生成渠道账单，账单直接进入结算人处理；渠道侧只查看进度。", `
+      ${pageHeader("结算明细", "查看自然月结算单和打款进度；付款上游只登记线下打款事实，不修改结算金额。", `
         ${isAdmin ? `<button class="btn primary" data-action="generateSettlement">生成上月自然月账单</button>` : ""}
       `)}
-      ${isAdmin ? adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待审核/待打款/已打款", "层级：招商/运营/商务", "处理人：结算人"], `<button class="btn ghost" type="button">生成付款批次</button>`) : ""}
+      ${isAdmin ? adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待打款/已打款/打款失败/已归档", "总后台登记：招商结算单", "下级结算：由直属上游登记"], "") : ""}
       ${renderListFilter("settlements", "输入账单、归属账号、规则、账期或状态", rawRows)}
       <div class="card">
-        <div class="card-header"><div><h3>结算单</h3><p>支持结算人审核、打款和归档；渠道侧不需要确认。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>结算明细</h3><p>自然月账单生成后进入待打款；总后台登记招商打款，招商登记直属运营打款，运营登记直属商务打款。</p></div>${featureBadges(true, true)}</div>
         ${renderSettlementsTable(rows, user)}
       </div>
     `;
@@ -1965,7 +2074,7 @@
         ${renderChannelAccountsTable(businesses)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>商务数据汇总</h3><p>只展示商务消耗和模型-provider分布，不展示客户账号、客户ID或联系人。</p></div>${featureBadges(true, true)}</div>
+        <div class="card-header"><div><h3>商务数据汇总</h3><p>只展示商务消耗和主要消耗来源，不展示客户账号、客户ID或联系人。</p></div>${featureBadges(true, true)}</div>
         ${summaryRows}
       </div>
       <div class="card">
@@ -1982,22 +2091,20 @@
     const businessIds = rawBusinesses.map((business) => business.id);
     const rawBindingApplications = state.entities.bindingApplications.filter((item) => businessIds.includes(item.ownerBusiness));
     const bindingApplications = filterListRows("childAccounts", rawBindingApplications, ["id", "customerId", "customerName", "customerAccount", "ownerBusiness", "sourceLink", "status", "reason"]);
-    const rawCustomers = state.entities.customers.filter((item) => rawBusinesses.map((business) => business.id).includes(item.ownerBusiness));
-    const customers = filterCustomers(filterListRows("childAccounts", rawCustomers, ["id", "name", "account", "company", "contact", "status", "ownerBusiness"]));
     const rawApplications = state.entities.accountApplications.filter((item) => item.createdBy === account?.id);
     const applications = filterListRows("childAccounts", rawApplications, ["id", "role", "name", "parent", "createdBy", "beneficiary", "contact", "status"]);
     return `
-      ${pageHeader("我的团队", "运营可查看自己的商务，以及商务已审批通过的客户。", `
+      ${pageHeader("我的团队", "运营可查看自己的商务账号、商务消耗汇总和相关审批事项，不展示客户列表。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>
       `)}
-      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、客户、角色或状态", rawBusinesses.concat(rawCustomers, rawBindingApplications, rawApplications))}
+      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色或状态", rawBusinesses.concat(rawBindingApplications, rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>商务账号</h3><p>正式商务账号，通过运营审批后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(businesses)}
       </div>
       <div class="card">
-        <div class="card-header"><div><h3>商务的客户</h3><p>只展示当前运营链路内的已归属客户。</p></div>${featureBadges(true, true)}</div>
-        ${renderCustomerTable(filterCustomers(customers))}
+        <div class="card-header"><div><h3>商务数据汇总</h3><p>按商务查看消耗金额和主要消耗来源，不展示客户明细。</p></div>${featureBadges(true, true)}</div>
+        ${renderBusinessConsumptionSummary(businesses.map((item) => item.id))}
       </div>
       <div class="card">
         <div class="card-header"><div><h3>客户归属上级审批</h3><p>客户提交绑定资料后，由所属商务的上级运营审批。</p></div>${featureBadges(false, true)}</div>
@@ -2127,32 +2234,54 @@
   }
 
   function channelDashboardSummary(user, transactions = visibleTransactions(user), settlementRows = visibleSettlements(user)) {
-    const currentFlow = roundMoney(transactions.reduce((sum, item) => sum + transactionFlowTotal(item), 0));
-    const projectedSettlement = roundMoney(projectedSettlementForTransactions(user, transactions));
-    const currentExpectedSettlement = roundMoney(settlementRows.length ? settlementRows.reduce((sum, item) => sum + item.amount, 0) : projectedSettlement);
-    const todayRows = transactions.filter(isTodayTransaction);
-    const todayFlow = roundMoney(todayRows.reduce((sum, item) => sum + transactionFlowTotal(item), 0));
-    const todayExpectedSettlement = roundMoney(projectedSettlementForTransactions(user, todayRows));
+    const customers = visibleCustomers(user).filter((item) => item.status === "bound");
+    const today = dateOnly(new Date());
+    const newCustomers = customers.filter((item) => String(item.boundAt || "").slice(0, 10) === today).length;
+    const chargedCustomerIds = new Set(transactions.filter((item) => Number(item.recharge || 0) > 0).map((item) => item.customerId));
+    const rechargeOrders = transactions.filter((item) => Number(item.recharge || 0) > 0).length;
+    const rechargeAmount = roundMoney(transactions.reduce((sum, item) => sum + Number(item.recharge || 0), 0));
+    const consumeAmount = roundMoney(transactions.reduce((sum, item) => sum + Number(item.consume || 0), 0));
+    const expectedSettlement = roundMoney(settlementRows.length ? settlementRows.reduce((sum, item) => sum + item.amount, 0) : projectedSettlementForTransactions(user, transactions));
+    const conversion = customers.length ? `${Math.round((chargedCustomerIds.size / customers.length) * 1000) / 10}%` : "0%";
     const multipliers = [0.72, 0.84, 0.93, 1];
-    const monthlyRows = multipliers.map((factor, index) => ({
-      period: monthLabel(index - multipliers.length + 1),
-      flow: roundMoney(currentFlow * factor),
-      settlement: roundMoney(currentExpectedSettlement * factor),
+    const currentMonth = monthLabel(0);
+    const monthlyRows = multipliers.map((factor, index) => {
+      const period = monthLabel(index - multipliers.length + 1);
+      const isCurrentPeriod = period === currentMonth;
+      return {
+        period,
+        isCurrentPeriod,
+        newCustomers: Math.round(Math.max(customers.length, 1) * factor * 0.18),
+        recharge: roundMoney(rechargeAmount * factor),
+        consume: roundMoney(consumeAmount * factor),
+        settlement: roundMoney(expectedSettlement * factor),
+        settlementLabel: isCurrentPeriod ? "预计结算" : "结算金额",
+      };
+    });
+    const dailyRows = [
+      { day: "3日前", factor: 0.38 },
+      { day: "2日前", factor: 0.52 },
+      { day: "1日前", factor: 0.74 },
+      { day: "今日", factor: 1 },
+    ].map(({ day, factor }) => ({
+      day,
+      newCustomers: Math.round(newCustomers * factor),
+      recharge: roundMoney(rechargeAmount * factor * 0.18),
+      consume: roundMoney(consumeAmount * factor * 0.18),
+      settlement: roundMoney(expectedSettlement * factor * 0.18),
     }));
-    const previous = monthlyRows[monthlyRows.length - 2] || { flow: 0, settlement: 0, period: monthLabel(-1) };
     return {
       currentPeriodLabel: monthLabel(0),
-      previousPeriodLabel: previous.period,
-      currentFlow,
-      previousFlow: previous.flow,
-      historyFlow: roundMoney(monthlyRows.reduce((sum, item) => sum + item.flow, 0)),
-      todayFlow,
-      currentExpectedSettlement,
-      previousSettlement: previous.settlement,
-      historySettlement: roundMoney(monthlyRows.reduce((sum, item) => sum + item.settlement, 0)),
-      todayExpectedSettlement,
-      todayRows,
+      newCustomers,
+      totalCustomers: customers.length,
+      chargedCustomers: chargedCustomerIds.size,
+      rechargeOrders,
+      rechargeAmount,
+      consumeAmount,
+      expectedSettlement,
+      conversion,
       monthlyRows,
+      dailyRows,
     };
   }
 
@@ -2198,17 +2327,19 @@
     return `
       <div class="trend-line-chart">
         <div class="trend-chart-legend">
-          <span><i class="flow-line"></i>流水</span>
-          <span><i class="settlement-line"></i>预计结算</span>
+          <span><i class="flow-line"></i>消耗金额</span>
+          <span><i class="settlement-line"></i>结算/预计</span>
         </div>
-        ${renderChart("flow", "流水", "flow-line")}
-        ${renderChart("settlement", "预计结算", "settlement-line")}
+        ${renderChart("consume", "消耗金额", "flow-line")}
+        ${renderChart("settlement", "结算金额", "settlement-line")}
         <div class="trend-chart-values">
           ${rows.map((item) => `
             <div>
               <strong>${escapeHtml(item.period)}</strong>
-              <span>流水 ${escapeHtml(money(item.flow))}</span>
-              <span>预计结算 ${escapeHtml(money(item.settlement))}</span>
+              <span>新增客户 ${escapeHtml(item.newCustomers)}</span>
+              <span>充值 ${escapeHtml(money(item.recharge))}</span>
+              <span>消耗 ${escapeHtml(money(item.consume))}</span>
+              <span>${escapeHtml(item.settlementLabel || "结算金额")} ${escapeHtml(money(item.settlement))}</span>
             </div>
           `).join("")}
         </div>
@@ -2216,14 +2347,14 @@
     `;
   }
 
-  function renderDailyRealtimeRows(rows, user) {
-    if (!rows.length) return `<div class="empty">今日暂无新增流水。</div>`;
+  function renderDailyRealtimeRows(rows) {
+    if (!rows.length) return `<div class="empty">暂无运营趋势。</div>`;
     return table([
-      { key: "customerId", label: "客户ID" },
-      { key: "downstream", label: "来源链路", value: (row) => downstreamPath(row, user) },
-      { key: "recharge", label: "充值", type: "money" },
-      { key: "consume", label: "消费", type: "money" },
-      { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, user), type: "money" },
+      { key: "day", label: "日期" },
+      { key: "newCustomers", label: "新增客户" },
+      { key: "recharge", label: "充值金额", type: "money" },
+      { key: "consume", label: "消耗金额", type: "money" },
+      { key: "settlement", label: "预计结算额", type: "money" },
     ], rows);
   }
 
@@ -2268,7 +2399,7 @@
 
   function renderModelProviderConsumptionTable(rows) {
     return table([
-      { key: "modelProvider", label: "模型-provider" },
+      { key: "modelProvider", label: "模型 / Provider" },
       { key: "modelGroup", label: "模型组" },
       { key: "billingType", label: "计费类型" },
       { key: "usageUnit", label: "用量单位" },
@@ -2301,7 +2432,7 @@
     return table([
       { key: "business", label: "商务账号" },
       { key: "consume", label: "消耗金额", type: "money" },
-      { key: "topModelProvider", label: "主要模型-provider" },
+      { key: "topModelProvider", label: "主要消耗来源" },
       { key: "count", label: "流水数" },
     ], rows);
   }
@@ -2327,8 +2458,7 @@
         <button class="ops-btn" data-action="simulateTransaction">5 生成业绩</button>
         <button class="ops-btn" data-action="ensureDemoRebateRules">6 配置测试规则</button>
         <button class="ops-btn" data-action="generateSettlement">7 生成自然月账单</button>
-        <button class="ops-btn success" data-action="approveSettlement">8 结算人审核</button>
-        <button class="ops-btn success" data-action="paySettlement">9 打款归档</button>
+        <button class="ops-btn success" data-action="paySettlement">8 登记打款归档</button>
       </div>
     `;
   }
@@ -2349,6 +2479,7 @@
   function renderCustomerTable(rows) {
     return table([
       { key: "id", label: "客户ID" },
+      { key: "userId", label: "用户ID", value: (row) => row.userId || row.id },
       { key: "name", label: "客户" },
       { key: "account", label: "客户账号" },
       { key: "company", label: "客户主体" },
@@ -2388,19 +2519,56 @@
 
   function renderTransactionsTable(rows) {
     return table([
-      { key: "id", label: "流水" },
-      { key: "customerId", label: "客户" },
-      { key: "downstream", label: "下游来源", value: (row) => downstreamPath(row, currentUser()) },
-      { key: "modelProvider", label: "模型-provider", value: (row) => `${row.modelName || row.model || row.modelUsed || "-"} / ${row.provider || row.modelProvider || "-"}` },
-      { key: "modelGroup", label: "模型组" },
-      { key: "investor", label: "招商" },
-      { key: "operator", label: "运营" },
-      { key: "business", label: "商务" },
-      { key: "recharge", label: "充值", type: "money" },
-      { key: "consume", label: "消费", type: "money" },
+      { key: "createdAt", label: "时间" },
+      { key: "id", label: "流水号" },
+      { key: "sourceType", label: "来源类型", value: (row) => transactionSourceType(row) },
+      { key: "sourceNo", label: "来源单号", value: (row) => row.sourceNo || row.id },
+      { key: "customerId", label: "客户ID" },
+      { key: "userId", label: "用户ID", value: (row) => row.customerId },
+      { key: "customerAccount", label: "客户账号", value: (row) => customerAccountLabel(row.customerId) },
+      { key: "channelPath", label: "渠道链路", value: (row) => downstreamPath(row, currentUser()) },
+      { key: "ruleName", label: "返点规则", value: (row) => ruleNameForAccount(settlementOwnerForCurrentUser(row, currentUser())) },
       { key: "effectiveBase", label: "返点基数", value: (row) => rebateBaseForCurrentUser(row, currentUser()), type: "money" },
+      { key: "rate", label: "返点比例", value: (row) => settlementRateForCurrentUser(row, currentUser()), type: "percent" },
+      { key: "amount", label: "返点金额", value: (row) => projectedSettlementForTransactions(currentUser(), [row]), type: "money" },
+      { key: "period", label: "账期", value: (row) => String(row.createdAt || nowText()).slice(0, 7) },
+      { key: "settlementId", label: "结算单号", value: (row) => settlementIdForTransaction(row, currentUser()) },
       { key: "status", label: "状态", type: "status" },
+      { key: "remark", label: "备注", value: (row) => row.remark || "-" },
     ], rows);
+  }
+
+  function transactionSourceType(row) {
+    if (Number(row.recharge || 0) > 0 && Number(row.consume || 0) > 0) return "充值/消耗";
+    if (Number(row.recharge || 0) > 0) return "充值";
+    if (Number(row.consume || 0) > 0) return "消耗";
+    return "人工调整";
+  }
+
+  function customerAccountLabel(customerId) {
+    const customer = state.entities.customers.find((item) => item.id === customerId);
+    return customer?.account || "-";
+  }
+
+  function settlementOwnerForCurrentUser(row, user) {
+    if (!user || user.role === "admin") return row.business || row.operator || row.investor;
+    if (user.role === "investor") return row.investor;
+    if (user.role === "operator") return row.operator;
+    if (user.role === "business") return row.business;
+    return "";
+  }
+
+  function settlementRateForCurrentUser(row, user) {
+    const owner = settlementOwnerForCurrentUser(row, user);
+    const account = state.entities.channelAccounts.find((item) => item.id === owner);
+    const rule = account ? ruleForSettlement(account.role, account.id) : null;
+    return rule?.rate || 0;
+  }
+
+  function settlementIdForTransaction(row, user) {
+    const owner = settlementOwnerForCurrentUser(row, user);
+    const settlement = state.entities.settlements.find((item) => item.owner === owner);
+    return settlement?.id || "-";
   }
 
   function renderRulesTable(rows = visibleRebateRules(currentUser())) {
@@ -2420,24 +2588,36 @@
       { key: "id", label: "结算单" },
       { key: "periodStart", label: "账期开始" },
       { key: "periodEnd", label: "账期结束" },
-      { key: "role", label: "层级" },
       { key: "owner", label: "归属账号" },
+      { key: "role", label: "角色层级" },
       { key: "ruleName", label: "适用规则" },
-      { key: "cycle", label: "返佣周期" },
       { key: "base", label: "返点基数", type: "money" },
       { key: "rate", label: "比例", type: "percent" },
       { key: "amount", label: "返点金额", type: "money" },
-      { key: "status", label: "状态", type: "status" },
+      { key: "status", label: "打款状态", type: "status" },
+      { key: "paidAmount", label: "实付金额", value: (row) => row.paidAmount ? money(row.paidAmount) : "-" },
+      { key: "paidAt", label: "打款时间", value: (row) => row.paidAt || "-" },
+      { key: "confirmedBy", label: "登记人", value: (row) => row.confirmedBy || "-" },
+      { key: "confirmedAt", label: "登记时间", value: (row) => row.confirmedAt || "-" },
+      { key: "paymentNo", label: "流水号", value: (row) => row.paymentNo || "-" },
+      { key: "remark", label: "备注", value: (row) => row.remark || "-" },
     ], rows, (row) => settlementActions(row, user));
   }
 
   function settlementActions(row, user) {
-    if (user.role === "admin") {
-      if (row.status === "pending_admin_review") return `<button class="btn success" data-action="approveSettlement" data-id="${row.id}">审核通过</button>`;
-      if (row.status === "approved") return `<button class="btn success" data-action="paySettlement" data-id="${row.id}">登记打款</button>`;
-      return "";
-    }
-    return "";
+    if (!canRegisterSettlementPayment(row, user)) return "";
+    return `<button class="btn success" data-action="openModal" data-modal="registerSettlementPayment" data-id="${escapeHtml(row.id)}">登记打款</button>`;
+  }
+
+  function canRegisterSettlementPayment(row, user) {
+    if (!row || !user || !["pending_payment", "payment_failed"].includes(row.status)) return false;
+    const account = currentAccount();
+    if (user.role === "admin") return row.role === "招商";
+    if (!account) return false;
+    const payee = state.entities.channelAccounts.find((item) => item.id === row.owner);
+    if (user.role === "investor") return row.role === "运营" && payee?.parent === account.id;
+    if (user.role === "operator") return row.role === "商务" && payee?.parent === account.id;
+    return false;
   }
 
 
@@ -2596,9 +2776,14 @@
       { key: "rate", label: "比例", type: "percent" },
       { key: "amount", label: "返点金额", type: "money" },
       { key: "status", label: "状态", type: "status" },
+      { key: "paidAmount", label: "实付金额", value: (row) => row.paidAmount ? money(row.paidAmount) : "-" },
+      { key: "paidAt", label: "打款时间", value: (row) => row.paidAt || "-" },
+      { key: "confirmedBy", label: "登记人", value: (row) => row.confirmedBy || "-" },
+      { key: "confirmedAt", label: "登记时间", value: (row) => row.confirmedAt || "-" },
+      { key: "paymentNo", label: "流水号", value: (row) => row.paymentNo || "-" },
     ], visibleRows, (row) => {
       if (user.role === "admin") {
-        if (row.status === "pending_payment") return `<button class="btn success" data-action="payBdBill" data-id="${row.id}">登记打款</button>`;
+        if (["pending_payment", "payment_failed"].includes(row.status)) return `<button class="btn success" data-action="openModal" data-modal="registerBdPayment" data-id="${escapeHtml(row.id)}">登记打款</button>`;
         return "";
       }
       return "";
@@ -2648,9 +2833,8 @@
       ["binding", "客户提交绑定申请", "客户归属进入待上级审批，不计佣。"],
       ["approval", "上级审批归属", "通过后写入客户归属台账。"],
       ["performance", "产生业绩并计算返点", "按已配置返佣规则计算本期返点。"],
-      ["settlement", "生成结算单", "结算单直接进入结算人审核。"],
-      ["confirm", "结算人审核", "审核通过后进入打款处理。"],
-      ["pay", "总后台打款归档", "结算完成，历史可追溯。"],
+      ["settlement", "生成结算单", "结算单直接进入待打款。"],
+      ["pay", "登记打款归档", "结算完成，历史可追溯。"],
     ];
     return steps.map((step, index) => {
       const cls = progress.done.includes(step[0]) ? "done" : progress.active === step[0] ? "active" : "";
@@ -2666,9 +2850,8 @@
     if (e.ownershipLedger.length) done.push("approval");
     if (e.transactions.length) done.push("performance");
     if (e.settlements.length) done.push("settlement");
-    if (e.settlements.some((item) => [, "pending_admin_review", "approved", "paid"].includes(item.status))) done.push("confirm");
     if (e.settlements.some((item) => item.status === "paid")) done.push("pay");
-    const keys = ["invite", "binding", "approval", "performance", "settlement", "confirm", "pay"];
+    const keys = ["invite", "binding", "approval", "performance", "settlement", "pay"];
     const active = keys.find((key) => !done.includes(key)) || "pay";
     return { done, active };
   }
@@ -3025,6 +3208,8 @@
       addRebateRule,
       updateRebateRule,
       assignChannelRebateRule,
+      registerSettlementPayment,
+      registerBdPayment,
       transferActivityPoints,
       saveHelpArticle,
       applyCustomerFilter,
@@ -3057,7 +3242,6 @@
       simulateTransaction,
       ensureDemoRebateRules,
       generateSettlement,
-      approveSettlement,
       paySettlement,
       createOperatorDraft,
       createBusinessDraft,
@@ -3419,10 +3603,11 @@
       ruleId: item.rule.id,
       ruleName: item.rule.name,
       cycle: item.rule.cycle,
-      status: "pending_admin_review",
+      status: "pending_payment",
       source: `客户 ${tx.customerId}`,
+      remark: "自然月账单生成后进入待打款",
     })));
-    addAudit(actorName(), "生成渠道账单", `${period.label} 商务、运营、招商三层账单已生成，状态为待总后台审核`);
+    addAudit(actorName(), "生成渠道账单", `${period.label} 商务、运营、招商三层账单已生成，状态为待打款`);
   }
 
 
@@ -3435,30 +3620,44 @@
 
 
 
-
-  function approveSettlement(id) {
-    const rows = id ? state.entities.settlements.filter((item) => item.id === id) : state.entities.settlements.filter((item) => item.status === "pending_admin_review");
-    if (!rows.length) {
-      addAudit(actorName(), "总后台审核结算", "没有待审核的结算单");
-      return;
-    }
-    rows.forEach((row) => {
-      row.status = "approved";
-    });
-    addAudit(actorName(), "总后台审核结算", rows.map((row) => row.id).join("、") + " 审核通过，待打款");
-  }
 
   function paySettlement(id) {
-    const rows = id ? state.entities.settlements.filter((item) => item.id === id) : state.entities.settlements.filter((item) => item.status === "approved");
+    const rows = id ? state.entities.settlements.filter((item) => item.id === id) : state.entities.settlements.filter((item) => item.status === "pending_payment");
     if (!rows.length) {
-      addAudit(actorName(), "登记打款", "没有审核通过的结算单");
+      addAudit(actorName(), "登记打款", "没有待打款的结算单");
       return;
     }
     rows.forEach((row) => {
       row.status = "paid";
       row.paidAt = nowText();
+      row.paidAmount = row.amount;
+      row.paymentNo = row.paymentNo || "DEMO-PAY-" + row.id;
+      row.confirmedBy = actorName();
+      row.confirmedAt = nowText();
+      row.remark = "已登记线下打款";
     });
     addAudit(actorName(), "登记打款", rows.map((row) => row.id).join("、") + " 已打款归档");
+  }
+
+  function registerSettlementPayment(formData) {
+    const id = formValue(formData, "id");
+    const row = state.entities.settlements.find((item) => item.id === id);
+    if (!row) return false;
+    if (!canRegisterSettlementPayment(row, currentUser())) {
+      addAudit(actorName(), "登记打款", `${id} 无登记权限`);
+      return false;
+    }
+    const status = formValue(formData, "status") || "paid";
+    const paidAmount = Number(formValue(formData, "paidAmount") || row.amount);
+    row.status = status;
+    row.paidAt = normalizeDateTimeInput(formValue(formData, "paidAt")) || nowText();
+    row.paidAmount = Number.isFinite(paidAmount) ? Math.round(paidAmount * 100) / 100 : row.amount;
+    row.paymentNo = formValue(formData, "paymentNo");
+    row.paymentRemark = formValue(formData, "paymentRemark");
+    row.confirmedBy = actorName();
+    row.confirmedAt = nowText();
+    row.remark = row.paymentRemark || (status === "paid" ? "已登记线下打款" : "线下打款失败，待重新处理");
+    addAudit(actorName(), "登记打款", `${id} 状态更新为${statusName[status] || status}，结算金额未修改`);
   }
 
   function createChannelAccount(formData) {
@@ -3723,13 +3922,13 @@
   function applyPerformanceFilter(formData) {
     state.ui.filters.performanceKeyword = formValue(formData, "performanceKeyword");
     state.ui.filters.performanceOwner = formValue(formData, "performanceOwner") || "all";
-    addAudit(actorName(), "筛选返点流水", "返点流水筛选条件已应用");
+    addAudit(actorName(), "筛选交易明细", "交易明细筛选条件已应用");
   }
 
   function clearPerformanceFilter() {
     state.ui.filters.performanceKeyword = "";
     state.ui.filters.performanceOwner = "all";
-    addAudit(actorName(), "清空返点筛选", "返点流水恢复全部");
+    addAudit(actorName(), "清空交易筛选", "交易明细恢复全部");
   }
 
   function applyListFilter(formData) {
@@ -3836,6 +4035,12 @@
 
   function formValue(formData, key) {
     return String(formData.get(key) || "").trim();
+  }
+
+  function normalizeDateTimeInput(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    return raw.replace("T", " ");
   }
 
   function percentInput(value, fallback) {
@@ -3992,10 +4197,15 @@
     ensureDemoRebateRules();
     if (!state.entities.settlements.length) generateSettlement();
     state.entities.settlements.forEach((item) => {
-      if (item.status === "pending_admin_review") item.status = "approved";
-    });
-    state.entities.settlements.forEach((item) => {
-      if (item.status === "approved") item.status = "paid";
+      if (item.status === "pending_payment") {
+        item.status = "paid";
+        item.paidAt = nowText();
+        item.paidAmount = item.amount;
+        item.paymentNo = item.paymentNo || "DEMO-PAY-" + item.id;
+        item.confirmedBy = actorName();
+        item.confirmedAt = nowText();
+        item.remark = "已登记线下打款";
+      }
     });
     addAudit(actorName(), "跑通主流程", "从链接、绑定、审批、业绩、结算到打款全部完成");
   }
@@ -4045,8 +4255,35 @@
     }
     rows.forEach((row) => {
       row.status = "paid";
+      row.paidAt = nowText();
+      row.paidAmount = row.amount;
+      row.paymentNo = row.paymentNo || "DEMO-BD-PAY-" + row.id;
+      row.confirmedBy = actorName();
+      row.confirmedAt = nowText();
+      row.remark = "已登记线下打款";
     });
     addAudit(actorName(), "登记 BD 打款", rows.map((row) => row.id).join("、") + " 已打款");
+  }
+
+  function registerBdPayment(formData) {
+    const id = formValue(formData, "id");
+    const row = state.entities.bdBills.find((item) => item.id === id);
+    if (!row) return false;
+    if (currentUser()?.role !== "admin" || !["pending_payment", "payment_failed"].includes(row.status)) {
+      addAudit(actorName(), "登记 BD 打款", `${id} 无登记权限`);
+      return false;
+    }
+    const status = formValue(formData, "status") || "paid";
+    const paidAmount = Number(formValue(formData, "paidAmount") || row.amount);
+    row.status = status;
+    row.paidAt = normalizeDateTimeInput(formValue(formData, "paidAt")) || nowText();
+    row.paidAmount = Number.isFinite(paidAmount) ? Math.round(paidAmount * 100) / 100 : row.amount;
+    row.paymentNo = formValue(formData, "paymentNo");
+    row.paymentRemark = formValue(formData, "paymentRemark");
+    row.confirmedBy = actorName();
+    row.confirmedAt = nowText();
+    row.remark = row.paymentRemark || (status === "paid" ? "已登记线下打款" : "线下打款失败，待重新处理");
+    addAudit(actorName(), "登记 BD 打款", `${id} 状态更新为${statusName[status] || status}，账单金额未修改`);
   }
 
   function latestSignatureForInvestor(investorId) {
