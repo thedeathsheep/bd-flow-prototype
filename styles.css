@@ -1101,6 +1101,142 @@ button {
   white-space: normal;
 }
 
+@media (min-width: 761px) {
+  .main {
+    background:
+      linear-gradient(180deg, rgba(232, 241, 255, 0.58), rgba(246, 247, 249, 0) 220px),
+      var(--bg);
+  }
+
+  .topbar {
+    align-items: center;
+    margin-bottom: 20px;
+  }
+
+  .topbar h1 {
+    font-size: 26px;
+    letter-spacing: 0;
+  }
+
+  .topbar p {
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  .dashboard-shell {
+    gap: 14px;
+  }
+
+  .dashboard-summary {
+    grid-template-columns: 260px minmax(0, 1fr);
+    border-color: #d5dce8;
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+  }
+
+  .dashboard-primary {
+    min-height: 154px;
+    padding: 20px 22px;
+    color: var(--text);
+    background: linear-gradient(180deg, #f8fbff, #eef5ff);
+    border-right: 1px solid #d8e3f3;
+  }
+
+  .dashboard-primary span {
+    color: #475467;
+  }
+
+  .dashboard-primary strong {
+    color: #175cd3;
+    font-size: 36px;
+  }
+
+  .dashboard-primary small {
+    color: #667085;
+  }
+
+  .dashboard-kpi-grid {
+    border-left: 0;
+  }
+
+  .dashboard-kpi {
+    min-height: 76px;
+    padding: 13px 16px;
+    background: #fff;
+  }
+
+  .dashboard-kpi strong {
+    font-size: 22px;
+  }
+
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(330px, 0.65fr);
+    gap: 14px;
+  }
+
+  .dashboard-card {
+    border-color: #d5dce8;
+    background: rgba(255, 255, 255, 0.98);
+    box-shadow: 0 8px 20px rgba(15, 23, 42, 0.045);
+  }
+
+  .dashboard-card .card-header {
+    align-items: center;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #edf0f5;
+  }
+
+  .dashboard-card .badge-row {
+    display: none;
+  }
+
+  .trend-line-chart {
+    gap: 12px;
+  }
+
+  .trend-chart-legend {
+    margin-top: -4px;
+  }
+
+  .trend-chart-panel {
+    border-color: #e1e6ee;
+    background: #fbfcfe;
+    padding: 14px 14px 6px;
+  }
+
+  .trend-chart-head strong {
+    color: #1d2939;
+  }
+
+  .trend-chart-values {
+    gap: 8px;
+  }
+
+  .trend-chart-values div {
+    border-color: #e1e6ee;
+    background: #fff;
+    padding: 11px 12px;
+  }
+
+  .daily-flow-card {
+    align-self: start;
+  }
+
+  .daily-flow-card .card-header {
+    display: block;
+  }
+
+  .daily-trend-list {
+    gap: 10px;
+  }
+
+  .daily-trend-row {
+    border-color: #dfe5ee;
+    background: #fff;
+    box-shadow: inset 3px 0 0 #e8f1ff;
+  }
+}
+
 .trend-line-chart {
   display: grid;
   gap: 14px;
