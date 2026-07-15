@@ -62,6 +62,7 @@
     business: [
       ["dashboard", "数据概览"],
       ["bindings", "我的客户"],
+      ["activityPoints", "活动积分"],
       ["consumption", "消耗明细"],
       ["performance", "交易明细"],
       ["settlements", "结算明细"],
