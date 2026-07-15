@@ -65,7 +65,7 @@
       ["consumption", "消耗明细"],
       ["performance", "交易明细"],
       ["settlements", "结算明细"],
-      ["messages", "站内信"],
+      ["messages", "消息通知"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
@@ -75,7 +75,7 @@
       ["settlements", "结算明细"],
       ["childAccounts", "我的团队"],
       ["activityPoints", "活动积分"],
-      ["messages", "站内信"],
+      ["messages", "消息通知"],
       ["workorders", "审批中心"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -86,7 +86,7 @@
       ["settlements", "结算明细"],
       ["childAccounts", "我的团队"],
       ["activityPoints", "活动积分"],
-      ["messages", "站内信"],
+      ["messages", "消息通知"],
       ["workorders", "审批中心"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -94,7 +94,7 @@
     externalBD: [
       ["models", "模型用量"],
       ["bdBills", "返点结算"],
-      ["messages", "站内信"],
+      ["messages", "消息通知"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
     ],
@@ -1055,7 +1055,7 @@
       return modalShell("新增渠道账号", "默认密码为 password，首次登录必须修改。", closeButton, `
         <form class="form-grid" data-form="createChannelAccount">
           <div class="field"><label>角色</label><select name="role" data-channel-role-select><option value="investor">招商</option><option value="operator">运营</option><option value="business">商务</option></select></div>
-          <div class="field"><label>账号ID</label><input name="id" placeholder="如 BD1002 / OP2002 / SW3002" /></div>
+          <div class="field"><label>渠道ID</label><input data-generated-id-hint value="提交后按招商规则自动生成 BD 编号" readonly tabindex="-1" /></div>
           <div class="field"><label>名称</label><input name="name" placeholder="如 招商 华东一区" /></div>
           <div class="field"><label>登录账号</label><input name="username" placeholder="如 bd_huadong_01" /></div>
           ${defaultPasswordHint()}
@@ -1114,9 +1114,9 @@
         <form class="form-grid" data-form="createAccountDraftForm">
           <input type="hidden" name="role" value="${escapeHtml(role)}" />
           <input type="hidden" name="parent" value="${escapeHtml(fixedParent)}" />
-          <div class="field"><label>账号ID</label><input name="id" placeholder="留空自动生成 ${config.prefix}" /></div>
+          <div class="field"><label>渠道ID</label><input value="提交后自动生成 ${config.prefix} 编号" readonly tabindex="-1" /></div>
           <div class="field"><label>名称</label><input name="name" placeholder="如 ${roleName[role]} 华东一区" /></div>
-          <div class="field"><label>登录账号</label><input name="username" placeholder="留空默认账号ID小写" /></div>
+          <div class="field"><label>登录账号</label><input name="username" placeholder="留空默认渠道ID小写" /></div>
           ${defaultPasswordHint()}
           <div class="field"><label>上级账号</label><input value="${escapeHtml(fixedParent)}" readonly tabindex="-1" /></div>
           <div class="field"><label>受益主体</label><input name="beneficiary" placeholder="合同/收款主体" /></div>
@@ -1236,7 +1236,7 @@
     if (modal.type === "createModelBdAccount") {
       return modalShell("新增模型BD", "默认密码为 password，首次登录必须修改。", closeButton, `
         <form class="form-grid" data-form="createModelBdAccount">
-          <div class="field"><label>BD账号ID</label><input name="id" placeholder="如 MXBD002" /></div>
+          <div class="field"><label>BD ID</label><input value="提交后自动生成 MXBD 编号" readonly tabindex="-1" /></div>
           <div class="field"><label>名称</label><input name="name" placeholder="如 模型BD 华东" /></div>
           <div class="field"><label>登录账号</label><input name="username" placeholder="如 mxbd_huadong" /></div>
           ${defaultPasswordHint()}
@@ -1315,7 +1315,7 @@
     const filters = state.ui.filters;
     return `
       <form class="filter-form" data-form="applyPerformanceFilter">
-        <div class="field"><label>客户/流水/渠道账号</label><input name="performanceKeyword" value="${escapeHtml(filters.performanceKeyword)}" placeholder="输入客户ID、流水号、招商/运营/商务账号" /></div>
+        <div class="field"><label>客户/流水/渠道ID</label><input name="performanceKeyword" value="${escapeHtml(filters.performanceKeyword)}" placeholder="输入客户ID、流水号、招商/运营/商务渠道ID" /></div>
         <div class="field"><label>归属账号</label><input name="performanceOwner" value="${filters.performanceOwner === "all" ? "" : escapeHtml(filters.performanceOwner)}" placeholder="如 SW3001 / OP2001 / BD1001" /></div>
         <div class="toolbar"><button class="btn primary" type="submit">筛选</button><button class="btn" type="button" data-action="clearPerformanceFilter">清空</button></div>
       </form>
@@ -1677,7 +1677,7 @@
         <button class="btn primary" data-action="openModal" data-modal="createChannelAccount">新增渠道账号</button>
       `)}
       ${adminFilterBar(["角色：全部", "状态：待上级审批/启用/驳回", "资料完整度：收款主体、手机号、上级关系", "风险：单账号单角色校验"], `<button class="btn ghost" type="button">导出账号清单</button>`)}
-      ${renderListFilter("adminAccounts", "输入账号ID、名称、手机号、上级、角色或状态", filterRows)}
+      ${renderListFilter("adminAccounts", "输入渠道ID、名称、手机号、上级、角色或状态", filterRows)}
       <div class="card">
         <div class="card-header"><div><h3>待审批账号资料</h3><p>招商创建运营资料、运营创建商务资料后进入上级审批；总后台查看全量记录。</p></div>${featureBadges(false, true)}</div>
         ${renderAccountApplications(accountApplications)}
@@ -1881,7 +1881,7 @@
         <button class="btn primary" data-action="generateBdBill">生成上月自然月BD账单</button>
       `)}
       ${adminFilterBar([`账期：${period.start} 至 ${period.end}`, "状态：待打款/已打款", "对象：模型BD", "来源：BD 模型关联"], "")}
-      ${renderListFilter("bdSettlement", "输入BD账单、模型、BD账号、账期或状态", rawBills)}
+      ${renderListFilter("bdSettlement", "输入BD账单、模型、BD ID、账期或状态", rawBills)}
       <div class="card">
         <div class="card-header"><div><h3>BD 账单</h3><p>总后台生成账单后直接进入打款处理，BD侧只查看进度。</p></div>${featureBadges(true, true)}</div>
         ${renderBdBillsTable(user, bills)}
@@ -1901,13 +1901,15 @@
   }
 
   function renderMessages(user) {
-    const rawRows = visibleWorkorders(user).map((item) => ({ title: item.title, status: item.status, related: item.target, time: item.createdAt }));
-    const rows = filterListRows("messages", rawRows, ["title", "status", "related", "time"]);
+    const rawRows = visibleNotifications(user);
+    const rows = filterListRows("messages", rawRows, ["type", "title", "related", "status", "time"]);
     return `
-      ${pageHeader("消息通知", "状态变化、审批结论、疑问处理和付款完成都应通知对应角色。", "")}
+      ${pageHeader("消息通知", "通知审批结果、下游账号与客户激活、结算单生成和打款完成。", "")}
       ${renderListFilter("messages", "输入消息、业务对象、时间或状态", rawRows)}
       <div class="card">
+        <div class="card-header"><div><h3>消息列表</h3><p>只展示与当前账号相关的关键状态通知。</p></div>${featureBadges(true, true)}</div>
         ${table([
+          { key: "type", label: "类型" },
           { key: "title", label: "消息" },
           { key: "related", label: "关联对象" },
           { key: "status", label: "状态", type: "status" },
@@ -1950,7 +1952,7 @@
     const user = currentUser();
     const targetIds = new Set(activityTransferTargets().map((item) => item.id));
     return table([
-      { key: "owner", label: "账号/对象" },
+      { key: "owner", label: "ID/对象" },
       { key: "role", label: "角色", value: (row) => roleName[row.role] || row.role },
       { key: "balance", label: "活动积分余额" },
       { key: "updatedAt", label: "更新时间" },
@@ -2073,7 +2075,7 @@
         ${user.role === "investor" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>` : ""}
         ${user.role === "operator" ? `<button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>` : ""}
       `)}
-      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色、客户或状态", rawRows.concat(rawApplications))}
+      ${renderListFilter("childAccounts", "输入渠道ID、名称、手机号、角色、客户或状态", rawRows.concat(rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>正式团队账号</h3><p>仅展示已启用账号；待审资料由上级账号审批。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(rows)}
@@ -2099,7 +2101,7 @@
       ${pageHeader("我的团队", "招商可查看直属运营、运营名下商务，以及商务消耗汇总；不展示商务客户明细。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="operator">创建运营资料</button>
       `)}
-      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色或状态", rawOperators.concat(rawBusinesses, rawApplications))}
+      ${renderListFilter("childAccounts", "输入渠道ID、名称、手机号、角色或状态", rawOperators.concat(rawBusinesses, rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>运营账号</h3><p>直属运营，通过招商审批后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(operators)}
@@ -2132,7 +2134,7 @@
       ${pageHeader("我的团队", "运营可查看自己的商务账号、商务消耗汇总和相关审批事项，不展示客户列表。", `
         <button class="btn primary" data-action="openModal" data-modal="createAccountDraft" data-role="business">创建商务资料</button>
       `)}
-      ${renderListFilter("childAccounts", "输入账号ID、名称、手机号、角色或状态", rawBusinesses.concat(rawBindingApplications, rawApplications))}
+      ${renderListFilter("childAccounts", "输入渠道ID、名称、手机号、角色或状态", rawBusinesses.concat(rawBindingApplications, rawApplications))}
       <div class="card">
         <div class="card-header"><div><h3>商务账号</h3><p>正式商务账号，通过运营审批后才启用。</p></div>${featureBadges(true, true)}</div>
         ${renderChannelAccountsTable(businesses)}
@@ -2186,7 +2188,7 @@
         <button class="btn primary" data-action="openModal" data-modal="createModelBdAccount">新增模型BD</button>
         <button class="btn" data-action="openModal" data-modal="createBdRelation">新建模型关联</button>
       `)}
-      ${renderListFilter("bdModelsAdmin", "输入BD账号、模型、用量类型、计费类型或状态", filterRows)}
+      ${renderListFilter("bdModelsAdmin", "输入BD ID、模型、用量类型、计费类型或状态", filterRows)}
       <div class="card">
         <div class="card-header"><div><h3>模型BD账号</h3><p>已启用的模型BD账号，可用于模型关联和 BD 结算。</p></div></div>
         ${renderBdAccountsTable(bdAccounts)}
@@ -2702,7 +2704,7 @@
 
   function renderInvestorSignatureStatusTable(rows) {
     return table([
-      { key: "id", label: "招商账号" },
+      { key: "id", label: "招商ID" },
       { key: "name", label: "名称" },
       { key: "contact", label: "手机号" },
       { key: "beneficiary", label: "签约主体" },
@@ -2720,7 +2722,7 @@
   function renderSignatureRecordTable(rows, user) {
     return table([
       { key: "id", label: "协议编号" },
-      { key: "investor", label: "招商账号" },
+      { key: "investor", label: "招商ID" },
       { key: "investorName", label: "招商名称" },
       { key: "document", label: "协议文件" },
       { key: "template", label: "协议模板" },
@@ -2738,7 +2740,7 @@
 
   function renderChannelAccountsTable(rows = state.entities.channelAccounts) {
     return table([
-      { key: "id", label: "账号" },
+      { key: "id", label: "渠道ID" },
       { key: "name", label: "名称" },
       { key: "role", label: "角色", value: (row) => roleName[row.role] },
       { key: "parent", label: "上级" },
@@ -2769,7 +2771,7 @@
 
   function renderBdAccountsTable(rows = state.entities.bdAccounts) {
     return table([
-      { key: "id", label: "BD账号" },
+      { key: "id", label: "BD ID" },
       { key: "name", label: "名称" },
       { key: "username", label: "登录账号" },
       { key: "contact", label: "手机号" },
@@ -2798,7 +2800,7 @@
   function renderBdRelationsTable(rows = state.entities.bdRelations) {
     return table([
       { key: "id", label: "关联" },
-      { key: "owner", label: "BD账号" },
+      { key: "owner", label: "BD ID" },
       { key: "model", label: "模型" },
       { key: "modelGroup", label: "模型组" },
       { key: "provider", label: "provider" },
@@ -2827,7 +2829,7 @@
       { key: "id", label: "账单" },
       { key: "periodStart", label: "账期开始" },
       { key: "periodEnd", label: "账期结束" },
-      { key: "owner", label: "BD账号" },
+      { key: "owner", label: "BD ID" },
       { key: "model", label: "关联模型" },
       { key: "modelGroup", label: "模型组" },
       { key: "provider", label: "provider" },
@@ -3186,6 +3188,86 @@
     return state.entities.settlements.filter((item) => scope.includes(item.owner));
   }
 
+  function visibleNotifications(user) {
+    if (!user) return [];
+    const account = currentAccount();
+    const scope = user.role === "admin" ? [] : getScopeAccountIds(account);
+    const inScope = (value) => user.role === "admin" || scope.includes(value);
+    const rows = [];
+
+    visibleWorkorders(user).forEach((item) => {
+      if (!["approved", "rejected"].includes(item.status)) return;
+      rows.push({
+        type: "审批结果",
+        title: `${item.status === "approved" ? "审批已通过" : "审批已驳回"}：${item.title}`,
+        related: item.target,
+        status: item.status,
+        time: item.createdAt,
+      });
+    });
+
+    state.entities.accountApplications.forEach((item) => {
+      if (item.status !== "active") return;
+      if (!(user.role === "admin" || item.createdBy === account?.id || inScope(item.id))) return;
+      rows.push({
+        type: "下游账号激活",
+        title: `我创建的${roleName[item.role] || "下游"}账号已激活`,
+        related: item.id,
+        status: "active",
+        time: item.createdAt,
+      });
+    });
+
+    state.entities.bindingApplications.forEach((item) => {
+      if (item.status !== "bound") return;
+      if (!inScope(item.ownerBusiness)) return;
+      rows.push({
+        type: "客户激活",
+        title: "我邀请的客户已绑定激活",
+        related: `${item.customerId} / ${item.ownerBusiness}`,
+        status: "bound",
+        time: item.createdAt,
+      });
+    });
+
+    visibleSettlements(user).forEach((item) => {
+      if (item.status === "pending_payment" || item.status === "payment_failed") {
+        rows.push({
+          type: "结算单",
+          title: "已生成结算单",
+          related: item.id,
+          status: item.status,
+          time: item.periodEnd || item.periodStart,
+        });
+      }
+      if (item.status === "paid" || item.status === "archived") {
+        rows.push({
+          type: "打款",
+          title: "结算单已打款",
+          related: item.id,
+          status: item.status,
+          time: item.paidAt || item.periodEnd || item.periodStart,
+        });
+      }
+    });
+
+    if (user.role === "admin" || user.role === "externalBD") {
+      state.entities.bdBills
+        .filter((item) => user.role === "admin" || item.owner === user.accountId)
+        .forEach((item) => {
+          rows.push({
+            type: item.status === "paid" ? "打款" : "结算单",
+            title: item.status === "paid" ? "BD 结算已打款" : "已生成 BD 结算单",
+            related: item.id,
+            status: item.status,
+            time: item.paidAt || item.periodEnd || item.periodStart,
+          });
+        });
+    }
+
+    return rows.sort((a, b) => String(b.time || "").localeCompare(String(a.time || "")));
+  }
+
 
 
   function visibleWorkorders(user) {
@@ -3290,11 +3372,14 @@
     document.querySelectorAll("[data-channel-role-select]").forEach((select) => {
       const form = select.closest("form");
       const parentInput = form?.querySelector("[data-channel-parent-input]");
+      const generatedIdHint = form?.querySelector("[data-generated-id-hint]");
       const directRebateFields = form?.querySelector("[data-direct-rebate-fields]");
       const investorRuleField = form?.querySelector("[data-investor-rule-field]");
       if (!parentInput) return;
       const sync = () => {
         const isInvestor = select.value === "investor";
+        const config = channelRoleConfig(select.value);
+        if (generatedIdHint) generatedIdHint.value = `提交后按${config.label}规则自动生成 ${config.prefix} 编号`;
         if (directRebateFields) directRebateFields.hidden = isInvestor;
         if (investorRuleField) investorRuleField.hidden = !isInvestor;
         if (isInvestor) {
@@ -3304,9 +3389,8 @@
           parentInput.tabIndex = -1;
           return;
         }
-        const config = channelRoleConfig(select.value);
         parentInput.value = config.parent;
-        parentInput.placeholder = select.value === "operator" ? "填写上级招商账号" : "填写上级运营账号";
+        parentInput.placeholder = select.value === "operator" ? "填写上级招商ID" : "填写上级运营ID";
         parentInput.readOnly = false;
         parentInput.tabIndex = 0;
       };
@@ -3784,7 +3868,7 @@
   function createChannelAccount(formData) {
     const role = formValue(formData, "role") || "investor";
     const config = channelRoleConfig(role);
-    const id = formValue(formData, "id") || nextAccountId(config.prefix, config.start, [...state.entities.channelAccounts, ...state.entities.accountApplications]);
+    const id = nextAccountId(config.prefix, config.start, [...state.entities.channelAccounts, ...state.entities.accountApplications]);
     const contact = requiredPhone(formData, "新增渠道账号");
     if (!contact) return false;
     if (state.entities.channelAccounts.some((item) => item.id === id) || state.entities.accountApplications.some((item) => item.id === id)) {
@@ -3858,7 +3942,7 @@
   }
 
   function createModelBdAccount(formData) {
-    const id = formValue(formData, "id") || nextAccountId("MXBD", 2, state.entities.bdAccounts);
+    const id = nextAccountId("MXBD", 2, state.entities.bdAccounts);
     const contact = requiredPhone(formData, "新增模型BD");
     if (!contact) return false;
     if (state.entities.bdAccounts.some((item) => item.id === id)) {
@@ -4292,7 +4376,7 @@
   function createAccountDraftForm(formData) {
     const role = formValue(formData, "role") || "business";
     const config = channelRoleConfig(role);
-    const id = formValue(formData, "id") || nextAccountId(config.prefix, config.start, [...state.entities.channelAccounts, ...state.entities.accountApplications]);
+    const id = nextAccountId(config.prefix, config.start, [...state.entities.channelAccounts, ...state.entities.accountApplications]);
     const contact = requiredPhone(formData, "创建账号资料");
     if (!contact) return false;
     createAccountDraft({
