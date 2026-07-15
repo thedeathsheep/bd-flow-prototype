@@ -1045,6 +1045,11 @@ button {
   line-height: 1.15;
 }
 
+.dashboard-kpi strong.compact {
+  font-size: 16px;
+  line-height: 1.25;
+}
+
 .dashboard-kpi small {
   color: var(--muted);
   font-size: 11px;
