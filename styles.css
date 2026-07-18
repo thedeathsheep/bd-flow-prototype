@@ -1064,6 +1064,46 @@ button {
   min-width: 0;
 }
 
+.bd-dashboard .dashboard-summary {
+  grid-template-columns: 1fr;
+}
+
+.bd-dashboard .dashboard-primary {
+  min-height: 118px;
+  background: #f8fafc;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+.bd-dashboard .dashboard-primary span,
+.bd-dashboard .dashboard-primary small {
+  color: var(--muted);
+}
+
+.bd-dashboard .dashboard-primary strong {
+  color: #1d4ed8;
+}
+
+.bd-dashboard .dashboard-kpi-grid {
+  grid-template-columns: repeat(auto-fit, minmax(158px, 1fr));
+  border-left: 0;
+}
+
+.bd-dashboard .dashboard-kpi {
+  min-width: 0;
+}
+
+.bd-dashboard .dashboard-kpi strong {
+  font-size: 17px;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}
+
+.bd-dashboard .dashboard-kpi:nth-child(4n),
+.bd-dashboard .dashboard-kpi:nth-child(2n) {
+  border-right: 1px solid var(--line);
+}
+
 .dashboard-card {
   margin-top: 0;
   min-width: 0;

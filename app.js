@@ -93,8 +93,9 @@
       ["help", "规则与协议"],
     ],
     externalBD: [
-      ["models", "模型用量"],
-      ["bdBills", "返点结算"],
+      ["dashboard", "数据概览"],
+      ["models", "用量明细"],
+      ["bdBills", "结算明细"],
       ["messages", "消息通知"],
       ["profile", "账号资料"],
       ["help", "规则与协议"],
@@ -534,7 +535,7 @@
       investor: "dashboard",
       operator: "dashboard",
       business: "dashboard",
-      externalBD: "models",
+      externalBD: "dashboard",
     }[role] || "performance";
   }
 
@@ -995,7 +996,7 @@
       bdRelations: renderBdModels,
       audit: renderAudit,
       customerChannelOwnership: renderCustomerChannelOwnership,
-      dashboard: renderChannelDashboard,
+      dashboard: (user) => user.role === "externalBD" ? renderExternalBdDashboard(user) : renderChannelDashboard(user),
       bindings: renderBusinessBindings,
       consumption: renderConsumptionDetails,
       activityPoints: renderActivityPoints,
@@ -1429,26 +1430,143 @@
     `;
   }
 
-  function renderExternalBdDashboard() {
+  function renderExternalBdDashboard(user = currentUser()) {
+    const summary = bdDashboardSummary(user);
     return `
-      ${pageHeader("模型BD模型用量", "模型BD独立于招商/运营/商务链路，只看模型关联、模型消耗和 BD 返点账单。", `
-        <button class="btn primary" data-action="generateBdBill">生成上月自然月BD账单</button>
+      ${pageHeader("模型BD数据概览", "查看本账期预计结算、模型消耗量、今日新增和历史累计情况。", `
+        <button class="btn" data-page="models">用量明细</button>
+        <button class="btn primary" data-page="bdBills">结算明细</button>
       `)}
-      <div class="grid cols-4">
-        ${metric("关联模型", state.entities.bdRelations.length, "总后台维护")}
-        ${metric("计费消耗金额", money(state.entities.bdRelations.reduce((sum, item) => sum + modelBillableAmount(item), 0)), "模型接口读取")}
-        ${metric("未结算账单", state.entities.bdBills.filter((item) => item.status !== "paid").length, "BD账单")}
-        ${metric("预计返点", money(state.entities.bdBills.reduce((sum, item) => sum + item.amount, 0)), "按模型消耗计算")}
-      </div>
-      <div class="card">
-        <div class="card-header"><div><h3>模型关联</h3><p>模型BD不进入客户归属链路，不参与招商三层返点。</p></div>${featureBadges(true, true)}</div>
-        ${renderBdRelationsTable()}
-      </div>
-      <div class="card">
-        <div class="card-header"><div><h3>BD 返点账单</h3><p>由总后台生成并登记付款。</p></div>${featureBadges(true, true)}</div>
-        ${renderBdBillsTable()}
+      <div class="dashboard-shell bd-dashboard">
+        <section class="dashboard-summary">
+          <div class="dashboard-primary">
+            <span>本账期预计结算金额</span>
+            <strong>${escapeHtml(summary.estimatedSettlement)}</strong>
+            <small>${escapeHtml(summary.periodLabel)} 按有效返点配置估算</small>
+          </div>
+          <div class="dashboard-kpi-grid">
+            ${dashboardKpi("本账期模型消耗量", summary.periodUsage, "按用量单位聚合")}
+            ${dashboardKpi("今日新增", summary.todayUsage, `预计结算 ${summary.todaySettlement}`)}
+            ${dashboardKpi("上账期结算金额", summary.previousSettlement, "上一完整自然月")}
+            ${dashboardKpi("累计总消耗", summary.totalUsage, "历史累计，按单位聚合")}
+            ${dashboardKpi("累计总结算金额", summary.totalSettlement, "历史已生成账单")}
+          </div>
+        </section>
+        <div class="dashboard-grid">
+          <section class="card dashboard-card">
+            <div class="card-header"><div><h3>本账期趋势</h3><p>展示每日消耗量和每日预计结算金额。</p></div>${featureBadges(true, true)}</div>
+            ${renderBdDashboardTrend(summary.trendRows)}
+          </section>
+          <section class="card dashboard-card">
+            <div class="card-header"><div><h3>模型/Provider 摘要</h3><p>按消耗金额查看主要模型贡献。</p></div>${featureBadges(true, true)}</div>
+            ${renderBdDashboardProviderSummary(summary.providerRows)}
+          </section>
+        </div>
       </div>
     `;
+  }
+
+  function bdDashboardSummary(user = currentUser()) {
+    const owner = user?.accountId;
+    const relations = state.entities.bdRelations.filter((item) => !owner || item.owner === owner);
+    const bills = state.entities.bdBills.filter((item) => !owner || item.owner === owner);
+    const periodLabel = `${monthLabel(0)} 自然月`;
+    const previousMonth = monthLabel(-1);
+    const estimatedAmount = relations.reduce((sum, item) => sum + modelBillableAmount(item) * Number(item.rate || 0), 0);
+    const todayAmount = relations.reduce((sum, item) => sum + Number(item.dayUsage || 0) * Number(item.unitPriceSnapshot || 0) * Number(item.rate || 0), 0);
+    const previousSettlement = bills
+      .filter((item) => String(item.periodStart || item.period || "").startsWith(previousMonth))
+      .reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    const totalSettlement = bills.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+    return {
+      periodLabel,
+      estimatedSettlement: relations.some((item) => Number(item.rate) > 0) ? money(estimatedAmount) : "待配置",
+      periodUsage: compactUsageSummary(usageByUnit(relations, "usage")),
+      todayUsage: compactUsageSummary(usageByUnit(relations, "dayUsage")),
+      todaySettlement: relations.some((item) => Number(item.rate) > 0) ? money(todayAmount) : "待配置",
+      previousSettlement: previousSettlement ? money(previousSettlement) : "暂无结算",
+      totalUsage: compactUsageSummary(usageByUnit(relations, "usage")),
+      totalSettlement: totalSettlement ? money(totalSettlement) : "暂无结算",
+      trendRows: bdDashboardTrendRows(relations),
+      providerRows: bdDashboardProviderRows(relations),
+    };
+  }
+
+  function usageByUnit(rows, key) {
+    return rows.reduce((acc, row) => {
+      const unit = row.usageUnit || "单位";
+      acc[unit] = (acc[unit] || 0) + Number(row[key] || 0);
+      return acc;
+    }, {});
+  }
+
+  function compactUsageSummary(unitMap) {
+    const entries = Object.entries(unitMap).filter(([, value]) => value > 0);
+    if (!entries.length) return "暂无数据";
+    return entries
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([unit, value]) => formatUsageQuantity(value, unit))
+      .join(" / ");
+  }
+
+  function bdDashboardTrendRows(relations) {
+    const factors = [
+      ["3日前", 0.72],
+      ["2日前", 0.86],
+      ["1日前", 0.94],
+      ["今日", 1],
+    ];
+    return factors.map(([day, factor]) => {
+      const usage = relations.reduce((sum, item) => sum + Number(item.dayUsage || 0) * factor, 0);
+      const amount = relations.reduce((sum, item) => {
+        const dayUsage = Number(item.dayUsage || 0) * factor;
+        return sum + dayUsage * Number(item.unitPriceSnapshot || 0) * Number(item.rate || 0);
+      }, 0);
+      return {
+        day,
+        usage: compactUsageSummary(relations.reduce((acc, item) => {
+          const unit = item.usageUnit || "单位";
+          acc[unit] = (acc[unit] || 0) + Number(item.dayUsage || 0) * factor;
+          return acc;
+        }, {})),
+        estimatedSettlement: money(amount),
+      };
+    });
+  }
+
+  function bdDashboardProviderRows(relations) {
+    return relations
+      .map((item) => ({
+        model: item.model,
+        provider: item.provider,
+        usageType: item.usageType,
+        usageUnit: item.usageUnit,
+        usage: item.usage,
+        billableAmount: modelBillableAmount(item),
+        estimatedSettlement: modelBillableAmount(item) * Number(item.rate || 0),
+      }))
+      .sort((a, b) => b.billableAmount - a.billableAmount);
+  }
+
+  function renderBdDashboardTrend(rows) {
+    return table([
+      { key: "day", label: "日期" },
+      { key: "usage", label: "每日消耗量" },
+      { key: "estimatedSettlement", label: "每日预计结算金额" },
+    ], rows);
+  }
+
+  function renderBdDashboardProviderSummary(rows) {
+    return table([
+      { key: "model", label: "模型" },
+      { key: "provider", label: "Provider" },
+      { key: "usageType", label: "用量类型" },
+      { key: "usageUnit", label: "用量单位" },
+      { key: "usage", label: "用量数", value: (row) => formatUsageQuantity(row.usage, row.usageUnit) },
+      { key: "billableAmount", label: "消耗金额", type: "money" },
+      { key: "estimatedSettlement", label: "预计结算金额", type: "money" },
+    ], rows);
   }
 
   function renderBusinessInvites(user) {
@@ -2163,13 +2281,13 @@
       const rawRows = state.entities.bdRelations.filter((item) => item.owner === user.accountId);
       const rows = filterListRows("bdModels", rawRows, ["id", "owner", "model", "usageType", "billingType", "usageUnit", "basis", "cycle", "settlementAccount", "latestBill", "status"]);
       return `
-        ${pageHeader("模型用量", "查看与自己关联的模型、日/周/月用量、返点口径和最近账单。", "")}
+        ${pageHeader("用量明细", "查看与自己关联的模型、日/周/月用量、返点口径和最近账单。", "")}
         ${renderListFilter("bdModels", "输入模型、用量类型、计费类型、账单或状态", rawRows)}
         <div class="grid cols-4">
           ${metric("关联模型", rows.length, "总后台维护")}
           ${metric("计费消耗金额", money(rows.reduce((sum, item) => sum + modelBillableAmount(item), 0)), "模型接口读取")}
           ${metric("预计返点", money(state.entities.bdBills.filter((item) => item.owner === user.accountId).reduce((sum, item) => sum + item.amount, 0)), "按模型账单汇总")}
-          ${metric("未结算账单", state.entities.bdBills.filter((item) => item.owner === user.accountId && item.status !== "paid").length, "返点结算")}
+          ${metric("未结算账单", state.entities.bdBills.filter((item) => item.owner === user.accountId && item.status !== "paid").length, "结算明细")}
         </div>
         <div class="card">
           <div class="card-header"><div><h3>关联模型与用量</h3><p>模型BD不创建团队账号、不绑定客户，只查看模型合作数据。</p></div></div>
@@ -2211,7 +2329,7 @@
       : state.entities.bdBills;
     const bills = filterListRows("bdBills", rawBills, ["id", "periodStart", "periodEnd", "owner", "model", "usageType", "billingType", "usageUnit", "status"]);
     return `
-      ${pageHeader("BD账单", "模型BD查看自己的模型返点账单和打款进度，不需要手动确认。", "")}
+      ${pageHeader("结算明细", "模型BD查看自己的模型返点账单和打款进度，不需要手动确认。", "")}
       ${renderListFilter("bdBills", "输入BD账单、模型、账期或状态", rawBills)}
       <div class="card">${renderBdBillsTable(user, bills)}</div>
     `;
