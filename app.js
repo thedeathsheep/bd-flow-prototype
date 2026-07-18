@@ -1433,7 +1433,7 @@
   function renderExternalBdDashboard(user = currentUser()) {
     const summary = bdDashboardSummary(user);
     return `
-      ${pageHeader("模型BD数据概览", "查看本账期预计结算、模型消耗量、今日新增和历史累计情况。", `
+      ${pageHeader("模型BD数据概览", "查看本账期预计结算、今日预计结算、上账期结算和累计结算情况。", `
         <button class="btn" data-page="models">用量明细</button>
         <button class="btn primary" data-page="bdBills">结算明细</button>
       `)}
@@ -1445,16 +1445,14 @@
             <small>${escapeHtml(summary.periodLabel)} 按有效返点配置估算</small>
           </div>
           <div class="dashboard-kpi-grid">
-            ${dashboardKpi("本账期模型消耗量", summary.periodUsage, "按用量单位聚合")}
-            ${dashboardKpi("今日新增", summary.todayUsage, `预计结算 ${summary.todaySettlement}`)}
+            ${dashboardKpi("今日预计结算金额", summary.todaySettlement, "按今日新增消耗估算")}
             ${dashboardKpi("上账期结算金额", summary.previousSettlement, "上一完整自然月")}
-            ${dashboardKpi("累计总消耗", summary.totalUsage, "历史累计，按单位聚合")}
             ${dashboardKpi("累计总结算金额", summary.totalSettlement, "历史已生成账单")}
           </div>
         </section>
         <div class="dashboard-grid">
           <section class="card dashboard-card">
-            <div class="card-header"><div><h3>本账期趋势</h3><p>展示每日消耗量和每日预计结算金额。</p></div>${featureBadges(true, true)}</div>
+            <div class="card-header"><div><h3>本账期趋势</h3><p>展示每日消耗金额和每日预计结算金额。</p></div>${featureBadges(true, true)}</div>
             ${renderBdDashboardTrend(summary.trendRows)}
           </section>
           <section class="card dashboard-card">
@@ -1481,11 +1479,8 @@
     return {
       periodLabel,
       estimatedSettlement: relations.some((item) => Number(item.rate) > 0) ? money(estimatedAmount) : "待配置",
-      periodUsage: compactUsageSummary(usageByUnit(relations, "usage")),
-      todayUsage: compactUsageSummary(usageByUnit(relations, "dayUsage")),
       todaySettlement: relations.some((item) => Number(item.rate) > 0) ? money(todayAmount) : "待配置",
       previousSettlement: previousSettlement ? money(previousSettlement) : "暂无结算",
-      totalUsage: compactUsageSummary(usageByUnit(relations, "usage")),
       totalSettlement: totalSettlement ? money(totalSettlement) : "暂无结算",
       trendRows: bdDashboardTrendRows(relations),
       providerRows: bdDashboardProviderRows(relations),
@@ -1518,18 +1513,17 @@
       ["今日", 1],
     ];
     return factors.map(([day, factor]) => {
-      const usage = relations.reduce((sum, item) => sum + Number(item.dayUsage || 0) * factor, 0);
+      const billableAmount = relations.reduce((sum, item) => {
+        const dayUsage = Number(item.dayUsage || 0) * factor;
+        return sum + dayUsage * Number(item.unitPriceSnapshot || 0);
+      }, 0);
       const amount = relations.reduce((sum, item) => {
         const dayUsage = Number(item.dayUsage || 0) * factor;
         return sum + dayUsage * Number(item.unitPriceSnapshot || 0) * Number(item.rate || 0);
       }, 0);
       return {
         day,
-        usage: compactUsageSummary(relations.reduce((acc, item) => {
-          const unit = item.usageUnit || "单位";
-          acc[unit] = (acc[unit] || 0) + Number(item.dayUsage || 0) * factor;
-          return acc;
-        }, {})),
+        billableAmount: money(billableAmount),
         estimatedSettlement: money(amount),
       };
     });
@@ -1552,7 +1546,7 @@
   function renderBdDashboardTrend(rows) {
     return table([
       { key: "day", label: "日期" },
-      { key: "usage", label: "每日消耗量" },
+      { key: "billableAmount", label: "每日消耗金额" },
       { key: "estimatedSettlement", label: "每日预计结算金额" },
     ], rows);
   }
