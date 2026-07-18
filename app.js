@@ -1450,14 +1450,14 @@
             ${dashboardKpi("累计总结算金额", summary.totalSettlement, "历史已生成账单")}
           </div>
         </section>
-        <div class="dashboard-grid">
-          <section class="card dashboard-card">
-            <div class="card-header"><div><h3>本账期趋势</h3><p>展示每日消耗金额和每日预计结算金额。</p></div>${featureBadges(true, true)}</div>
-            ${renderBdDashboardTrend(summary.trendRows)}
-          </section>
-          <section class="card dashboard-card">
+        <div class="dashboard-grid bd-dashboard-grid">
+          <section class="card dashboard-card bd-provider-card">
             <div class="card-header"><div><h3>模型/Provider 摘要</h3><p>按消耗金额查看主要模型贡献。</p></div>${featureBadges(true, true)}</div>
             ${renderBdDashboardProviderSummary(summary.providerRows)}
+          </section>
+          <section class="card dashboard-card bd-trend-card">
+            <div class="card-header"><div><h3>本账期日期趋势</h3><p>按日期展示消耗金额和预计结算金额。</p></div>${featureBadges(true, true)}</div>
+            ${renderBdDashboardTrend(summary.trendRows)}
           </section>
         </div>
       </div>
@@ -1506,13 +1506,12 @@
   }
 
   function bdDashboardTrendRows(relations) {
-    const factors = [
-      ["3日前", 0.72],
-      ["2日前", 0.86],
-      ["1日前", 0.94],
-      ["今日", 1],
-    ];
-    return factors.map(([day, factor]) => {
+    const today = new Date();
+    const offsets = [3, 2, 1, 0];
+    return offsets.map((offset) => {
+      const date = new Date(today);
+      date.setDate(today.getDate() - offset);
+      const factor = offset === 0 ? 1 : [0.72, 0.86, 0.94][3 - offset];
       const billableAmount = relations.reduce((sum, item) => {
         const dayUsage = Number(item.dayUsage || 0) * factor;
         return sum + dayUsage * Number(item.unitPriceSnapshot || 0);
@@ -1522,11 +1521,17 @@
         return sum + dayUsage * Number(item.unitPriceSnapshot || 0) * Number(item.rate || 0);
       }, 0);
       return {
-        day,
+        day: bdTrendDateLabel(date, offset === 0),
         billableAmount: money(billableAmount),
         estimatedSettlement: money(amount),
       };
     });
+  }
+
+  function bdTrendDateLabel(date, isToday = false) {
+    const month = `${date.getMonth() + 1}`.padStart(2, "0");
+    const day = `${date.getDate()}`.padStart(2, "0");
+    return isToday ? `${month}-${day} 今日` : `${month}-${day}`;
   }
 
   function bdDashboardProviderRows(relations) {

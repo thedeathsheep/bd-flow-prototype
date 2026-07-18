@@ -1104,6 +1104,19 @@ button {
   border-right: 1px solid var(--line);
 }
 
+.bd-dashboard-grid {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.bd-provider-card .table-wrap table {
+  min-width: 760px;
+}
+
+.bd-trend-card .table-wrap table {
+  min-width: 0;
+  width: 100%;
+}
+
 .dashboard-card {
   margin-top: 0;
   min-width: 0;
