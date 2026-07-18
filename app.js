@@ -1551,8 +1551,8 @@
   function renderBdDashboardTrend(rows) {
     return table([
       { key: "day", label: "日期" },
-      { key: "billableAmount", label: "每日消耗金额" },
-      { key: "estimatedSettlement", label: "每日预计结算金额" },
+      { key: "billableAmount", label: "消耗金额" },
+      { key: "estimatedSettlement", label: "预计结算金额" },
     ], rows);
   }
 
