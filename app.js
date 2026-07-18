@@ -1452,7 +1452,7 @@
         </section>
         <div class="dashboard-grid bd-dashboard-grid">
           <section class="card dashboard-card bd-provider-card">
-            <div class="card-header"><div><h3>模型/Provider 摘要</h3><p>按消耗金额查看主要模型贡献。</p></div>${featureBadges(true, true)}</div>
+            <div class="card-header"><div><h3>本账期模型消耗与预计结算</h3><p>按模型/Provider 展示本账期用量、消耗金额和预计结算金额。</p></div>${featureBadges(true, true)}</div>
             ${renderBdDashboardProviderSummary(summary.providerRows)}
           </section>
           <section class="card dashboard-card bd-trend-card">
