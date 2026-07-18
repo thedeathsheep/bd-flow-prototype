@@ -1507,7 +1507,7 @@
 
   function bdDashboardTrendRows(relations) {
     const today = new Date();
-    const offsets = [3, 2, 1, 0];
+    const offsets = [0, 1, 2, 3];
     return offsets.map((offset) => {
       const date = new Date(today);
       date.setDate(today.getDate() - offset);
